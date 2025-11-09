@@ -1,7 +1,6 @@
 import { getServerSession } from "next-auth/next";
-
 import { prisma } from "@/lib/prisma";
-import { authOptions } from "./next-auth";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 
 /**
  * Obtém a sessão do usuário autenticado
@@ -11,7 +10,7 @@ export async function getSession() {
 }
 
 /**
- * Obtém o usuário completo do banco de dados
+ * Obtém o usuário completo do banco de dados com perfis
  * Retorna null se não estiver autenticado
  */
 export async function getCurrentUser() {
@@ -67,7 +66,7 @@ export async function hasActiveHighlight(userId: string): Promise<boolean> {
 }
 
 /**
- * Obtém o destaque ativo do usuário
+ * Obtém o destaque ativo do usuário (com maior prioridade)
  */
 export async function getActiveHighlight(userId: string) {
   const now = new Date();
@@ -89,4 +88,28 @@ export async function getActiveHighlight(userId: string) {
       },
     },
   });
+}
+
+/**
+ * Verifica se o usuário é PRESTADOR
+ */
+export async function isWorker(userId: string): Promise<boolean> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { role: true },
+  });
+
+  return user?.role === "PRESTADOR";
+}
+
+/**
+ * Verifica se o usuário é EMPREGADOR
+ */
+export async function isEmployer(userId: string): Promise<boolean> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { role: true },
+  });
+
+  return user?.role === "EMPREGADOR";
 }
