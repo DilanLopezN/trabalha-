@@ -3,7 +3,6 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { hashPassword } from "@/lib/hash-auth";
 
-// Schema de validação
 const registerSchema = z.object({
   name: z.string().min(3, "Nome deve ter no mínimo 3 caracteres"),
   email: z.string().email("Email inválido"),
@@ -16,11 +15,8 @@ const registerSchema = z.object({
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-
-    // Validar dados
     const validatedData = registerSchema.parse(body);
 
-    // Verificar se email já existe
     const existingUser = await prisma.user.findUnique({
       where: { email: validatedData.email },
     });
@@ -32,10 +28,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Hash da senha
     const passwordHash = await hashPassword(validatedData.password);
 
-    // Criar usuário
     const user = await prisma.user.create({
       data: {
         name: validatedData.name,
@@ -53,33 +47,8 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // Criar perfil baseado no role
-    if (validatedData.role === "PRESTADOR") {
-      await prisma.workerProfile.create({
-        data: {
-          userId: user.id,
-          categoryId: "", // Será preenchido depois
-          averagePrice: 0,
-          availability: {},
-          description: "",
-        },
-      });
-    } else if (validatedData.role === "EMPREGADOR") {
-      await prisma.employerProfile.create({
-        data: {
-          userId: user.id,
-          advertisedService: "",
-          budget: 0,
-          availability: {},
-        },
-      });
-    }
-
     return NextResponse.json(
-      {
-        message: "Usuário criado com sucesso",
-        user,
-      },
+      { message: "Usuário criado com sucesso", user },
       { status: 201 }
     );
   } catch (error) {

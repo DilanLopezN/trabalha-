@@ -124,6 +124,7 @@ model WorkerProfile {
   averagePrice Decimal  @db.Decimal(10, 2)
   availability Json     @default("{}")
   description  String   @db.Text
+  resumeUrl    String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 

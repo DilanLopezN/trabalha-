@@ -91,7 +91,7 @@ export const authOptions: NextAuthOptions = {
       // Adicionar informações extras na sessão
       if (token && session.user) {
         session.user.id = token.id as string;
-        session.user.role = token.role as string;
+        session.user.role = token.role as "PRESTADOR" | "EMPREGADOR";
       }
 
       return session;

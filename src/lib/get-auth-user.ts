@@ -2,17 +2,10 @@ import { getServerSession } from "next-auth/next";
 import { prisma } from "@/lib/prisma";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 
-/**
- * Obtém a sessão do usuário autenticado
- */
 export async function getSession() {
   return await getServerSession(authOptions);
 }
 
-/**
- * Obtém o usuário completo do banco de dados com perfis
- * Retorna null se não estiver autenticado
- */
 export async function getCurrentUser() {
   try {
     const session = await getSession();
@@ -46,9 +39,36 @@ export async function getCurrentUser() {
   }
 }
 
-/**
- * Verifica se o usuário tem destaque ativo
- */
+export function isProfileComplete(user: any): boolean {
+  if (!user) return false;
+
+  // Verificar campos básicos
+  const hasBasicInfo = user.name && user.whatsapp;
+
+  if (user.role === "PRESTADOR") {
+    const profile = user.workerProfile;
+    return !!(
+      hasBasicInfo &&
+      profile &&
+      profile.categoryId &&
+      profile.description &&
+      profile.averagePrice > 0 &&
+      Object.keys(profile.availability || {}).length > 0
+    );
+  } else if (user.role === "EMPREGADOR") {
+    const profile = user.employerProfile;
+    return !!(
+      hasBasicInfo &&
+      profile &&
+      profile.advertisedService &&
+      profile.budget > 0 &&
+      Object.keys(profile.availability || {}).length > 0
+    );
+  }
+
+  return false;
+}
+
 export async function hasActiveHighlight(userId: string): Promise<boolean> {
   const now = new Date();
 
@@ -65,9 +85,6 @@ export async function hasActiveHighlight(userId: string): Promise<boolean> {
   return !!activeHighlight;
 }
 
-/**
- * Obtém o destaque ativo do usuário (com maior prioridade)
- */
 export async function getActiveHighlight(userId: string) {
   const now = new Date();
 
@@ -90,9 +107,6 @@ export async function getActiveHighlight(userId: string) {
   });
 }
 
-/**
- * Verifica se o usuário é PRESTADOR
- */
 export async function isWorker(userId: string): Promise<boolean> {
   const user = await prisma.user.findUnique({
     where: { id: userId },
@@ -102,9 +116,6 @@ export async function isWorker(userId: string): Promise<boolean> {
   return user?.role === "PRESTADOR";
 }
 
-/**
- * Verifica se o usuário é EMPREGADOR
- */
 export async function isEmployer(userId: string): Promise<boolean> {
   const user = await prisma.user.findUnique({
     where: { id: userId },

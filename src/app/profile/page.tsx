@@ -1,18 +1,21 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import {
   User,
   MapPin,
-  Phone,
-  Mail,
   Briefcase,
-  DollarSign,
   FileText,
   Calendar,
   Save,
   ArrowLeft,
+  Loader2,
 } from "lucide-react";
 
 import { Card, CardBody, CardHeader } from "../components/Card";
@@ -24,14 +27,6 @@ import { ProfilePhotoUpload } from "../components/profile/PhotoUpload";
 import { ResumeUpload } from "../components/profile/ResumeUpload";
 import { WeekScheduleSelector } from "../components/WeekSelector";
 
-interface WeekSchedule {
-  [key: string]: {
-    enabled: boolean;
-    slots: { start: string; end: string }[];
-  };
-}
-
-// Mock categories
 const categories = [
   { value: "", label: "Selecione uma categoria" },
   { value: "1", label: "Elétrica" },
@@ -43,12 +38,6 @@ const categories = [
   { value: "7", label: "Babá" },
   { value: "8", label: "Cuidador" },
   { value: "9", label: "Pedreiro" },
-];
-
-const accountTypes = [
-  { value: "", label: "Selecione o tipo de conta" },
-  { value: "PRESTADOR", label: "Prestador de Serviços" },
-  { value: "EMPREGADOR", label: "Empregador" },
 ];
 
 const estados = [
@@ -82,62 +71,183 @@ const estados = [
   { value: "TO", label: "Tocantins" },
 ];
 
-export default function ProfilePage() {
-  // Estados do formulário
-  const [accountType, setAccountType] = useState<string>("");
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [whatsapp, setWhatsapp] = useState("");
-  const [cnpj, setCnpj] = useState("");
+// Schema de validação
+const profileSchema = z.object({
+  // Básico
+  name: z.string().min(3, "Nome deve ter no mínimo 3 caracteres"),
+  email: z.string().email("Email inválido"),
+  whatsapp: z.string().min(1, "WhatsApp é obrigatório"),
+  cnpj: z.string().optional(),
+  profilePhotoUrl: z.string().nullable().optional(),
 
   // Endereço
-  const [cep, setCep] = useState("");
-  const [street, setStreet] = useState("");
-  const [number, setNumber] = useState("");
-  const [complement, setComplement] = useState("");
-  const [neighborhood, setNeighborhood] = useState("");
-  const [city, setCity] = useState("");
-  const [state, setState] = useState("");
+  cep: z.string().optional(),
+  street: z.string().optional(),
+  number: z.string().optional(),
+  complement: z.string().optional(),
+  neighborhood: z.string().optional(),
+  city: z.string().optional(),
+  state: z.string().optional(),
 
-  // Campos específicos
-  const [category, setCategory] = useState("");
-  const [description, setDescription] = useState("");
-  const [hourlyRate, setHourlyRate] = useState("");
-  const [budget, setBudget] = useState("");
-  const [advertisedService, setAdvertisedService] = useState("");
+  // Prestador
+  categoryId: z.string().optional(),
+  description: z.string().optional(),
+  hourlyRate: z.string().optional(),
+  resumeUrl: z.string().nullable().optional(),
 
-  // Uploads
-  const [profilePhoto, setProfilePhoto] = useState<File | null>(null);
-  const [resume, setResume] = useState<File | null>(null);
+  // Empregador
+  advertisedService: z.string().optional(),
+  budget: z.string().optional(),
 
   // Disponibilidade
-  const [schedule, setSchedule] = useState<WeekSchedule>({});
+  availability: z
+    .record(
+      z.object({
+        enabled: z.boolean(),
+        slots: z.array(
+          z.object({
+            start: z.string(),
+            end: z.string(),
+          })
+        ),
+      })
+    )
+    .optional(),
+});
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    console.log("Salvando perfil...", {
-      accountType,
-      name,
-      email,
-      whatsapp,
-      cnpj,
-      address: { cep, street, number, complement, neighborhood, city, state },
-      category,
-      description,
-      hourlyRate,
-      budget,
-      advertisedService,
-      schedule,
-      profilePhoto,
-      resume,
-    });
-    alert("Perfil salvo com sucesso! (simulação)");
+type ProfileFormData = z.infer<typeof profileSchema>;
+
+export default function ProfilePage() {
+  const router = useRouter();
+  const { data: session, status } = useSession();
+
+  const {
+    register,
+    handleSubmit,
+    setValue,
+    watch,
+    formState: { errors, isSubmitting },
+    reset,
+  } = useForm<ProfileFormData>({
+    resolver: zodResolver(profileSchema),
+    defaultValues: {
+      availability: {},
+    },
+  });
+
+  const accountType = session?.user?.role;
+  const availability = watch("availability") || {};
+
+  useEffect(() => {
+    if (status === "unauthenticated") {
+      router.push("/auth/signin");
+    } else if (status === "authenticated") {
+      loadProfile();
+    }
+  }, [status, router]);
+
+  const loadProfile = async () => {
+    try {
+      const response = await fetch("/api/profile");
+      if (response.ok) {
+        const { user } = await response.json();
+
+        // Preparar dados para o formulário
+        const formData: Partial<ProfileFormData> = {
+          name: user.name || "",
+          email: user.email || "",
+          whatsapp: user.whatsapp || "",
+          cnpj: user.cnpj || "",
+          profilePhotoUrl: user.image || null,
+        };
+
+        // Carregar perfil específico
+        if (user.role === "PRESTADOR" && user.workerProfile) {
+          const profile = user.workerProfile;
+          formData.categoryId = profile.categoryId || "";
+          formData.description = profile.description || "";
+          formData.hourlyRate = profile.averagePrice?.toString() || "";
+          formData.resumeUrl = profile.resumeUrl || null;
+
+          // Converter disponibilidade
+          const availabilityData: Record<string, any> = {};
+          const profileAvailability = profile.availability || {};
+          Object.keys(profileAvailability).forEach((day) => {
+            availabilityData[day] = {
+              enabled: true,
+              slots: profileAvailability[day] || [],
+            };
+          });
+          formData.availability = availabilityData;
+        } else if (user.role === "EMPREGADOR" && user.employerProfile) {
+          const profile = user.employerProfile;
+          formData.categoryId = profile.categoryId || "";
+          formData.advertisedService = profile.advertisedService || "";
+          formData.budget = profile.budget?.toString() || "";
+
+          // Converter disponibilidade
+          const availabilityData: Record<string, any> = {};
+          const profileAvailability = profile.availability || {};
+          Object.keys(profileAvailability).forEach((day) => {
+            availabilityData[day] = {
+              enabled: true,
+              slots: profileAvailability[day] || [],
+            };
+          });
+          formData.availability = availabilityData;
+        }
+
+        reset(formData);
+      }
+    } catch (error) {
+      console.error("Erro ao carregar perfil:", error);
+    }
+  };
+
+  const onSubmit = async (data: ProfileFormData) => {
+    try {
+      const response = await fetch("/api/profile", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: data.name,
+          whatsapp: data.whatsapp,
+          cnpj: data.cnpj,
+          profilePhotoUrl: data.profilePhotoUrl,
+          resumeUrl: data.resumeUrl,
+          address: {
+            cep: data.cep,
+            street: data.street,
+            number: data.number,
+            complement: data.complement,
+            neighborhood: data.neighborhood,
+            city: data.city,
+            state: data.state,
+          },
+          categoryId: data.categoryId,
+          description: data.description,
+          hourlyRate: data.hourlyRate ? parseFloat(data.hourlyRate) : undefined,
+          budget: data.budget ? parseFloat(data.budget) : undefined,
+          advertisedService: data.advertisedService,
+          availability: data.availability,
+        }),
+      });
+
+      if (response.ok) {
+        alert("Perfil salvo com sucesso!");
+        router.push("/dashboard");
+      } else {
+        const error = await response.json();
+        alert(`Erro: ${error.error}`);
+      }
+    } catch (error) {
+      console.error("Erro ao salvar perfil:", error);
+      alert("Erro ao salvar perfil");
+    }
   };
 
   const formatWhatsApp = (value: string) => {
-    // Remove tudo que não é número
     const numbers = value.replace(/\D/g, "");
-    // Formata (XX) XXXXX-XXXX
     if (numbers.length <= 11) {
       return numbers
         .replace(/^(\d{2})(\d)/, "($1) $2")
@@ -161,6 +271,17 @@ export default function ProfilePage() {
     return numbers.replace(/^(\d{5})(\d)/, "$1-$2").substring(0, 9);
   };
 
+  if (status === "loading") {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-12 h-12 text-primary-600 animate-spin mx-auto mb-4" />
+          <p className="text-gray-600">Carregando perfil...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -181,7 +302,7 @@ export default function ProfilePage() {
                 Trabalhaí
               </span>
             </Link>
-            <div className="w-20" /> {/* Spacer para centralizar */}
+            <div className="w-20" />
           </div>
         </div>
       </header>
@@ -194,7 +315,7 @@ export default function ProfilePage() {
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
           {/* Foto de Perfil */}
           <Card>
             <CardHeader>
@@ -204,8 +325,8 @@ export default function ProfilePage() {
             </CardHeader>
             <CardBody>
               <ProfilePhotoUpload
-                currentPhoto={undefined}
-                onPhotoChange={setProfilePhoto}
+                currentPhoto={watch("profilePhotoUrl") || undefined}
+                onPhotoChange={(url) => setValue("profilePhotoUrl", url)}
               />
             </CardBody>
           </Card>
@@ -221,19 +342,20 @@ export default function ProfilePage() {
               </div>
             </CardHeader>
             <CardBody className="space-y-4">
-              <Select
-                label="Tipo de Conta *"
-                options={accountTypes}
-                value={accountType}
-                onChange={(e) => setAccountType(e.target.value)}
-                fullWidth
-              />
+              <div className="bg-primary-50 border border-primary-200 rounded-lg p-3">
+                <p className="text-sm text-primary-800">
+                  <strong>Tipo de conta:</strong>{" "}
+                  {accountType === "PRESTADOR"
+                    ? "Prestador de Serviços"
+                    : "Empregador"}
+                </p>
+              </div>
 
               <Input
                 label="Nome Completo *"
                 placeholder="João Silva"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
+                {...register("name")}
+                error={errors.name?.message}
                 fullWidth
               />
 
@@ -242,16 +364,20 @@ export default function ProfilePage() {
                   label="Email *"
                   type="email"
                   placeholder="seu@email.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  {...register("email")}
+                  disabled
                   fullWidth
                 />
 
                 <Input
-                  label="WhatsApp"
+                  label="WhatsApp *"
                   placeholder="(11) 99999-9999"
-                  value={whatsapp}
-                  onChange={(e) => setWhatsapp(formatWhatsApp(e.target.value))}
+                  {...register("whatsapp")}
+                  onChange={(e) => {
+                    const formatted = formatWhatsApp(e.target.value);
+                    setValue("whatsapp", formatted);
+                  }}
+                  error={errors.whatsapp?.message}
                   fullWidth
                 />
               </div>
@@ -259,8 +385,11 @@ export default function ProfilePage() {
               <Input
                 label="CNPJ (opcional)"
                 placeholder="00.000.000/0000-00"
-                value={cnpj}
-                onChange={(e) => setCnpj(formatCNPJ(e.target.value))}
+                {...register("cnpj")}
+                onChange={(e) => {
+                  const formatted = formatCNPJ(e.target.value);
+                  setValue("cnpj", formatted);
+                }}
                 fullWidth
               />
             </CardBody>
@@ -281,16 +410,18 @@ export default function ProfilePage() {
                 <Input
                   label="CEP"
                   placeholder="00000-000"
-                  value={cep}
-                  onChange={(e) => setCep(formatCEP(e.target.value))}
+                  {...register("cep")}
+                  onChange={(e) => {
+                    const formatted = formatCEP(e.target.value);
+                    setValue("cep", formatted);
+                  }}
                   fullWidth
                 />
                 <div className="md:col-span-2">
                   <Input
                     label="Rua"
                     placeholder="Nome da rua"
-                    value={street}
-                    onChange={(e) => setStreet(e.target.value)}
+                    {...register("street")}
                     fullWidth
                   />
                 </div>
@@ -300,16 +431,14 @@ export default function ProfilePage() {
                 <Input
                   label="Número"
                   placeholder="123"
-                  value={number}
-                  onChange={(e) => setNumber(e.target.value)}
+                  {...register("number")}
                   fullWidth
                 />
                 <div className="md:col-span-2">
                   <Input
                     label="Complemento"
                     placeholder="Apto 45"
-                    value={complement}
-                    onChange={(e) => setComplement(e.target.value)}
+                    {...register("complement")}
                     fullWidth
                   />
                 </div>
@@ -319,22 +448,19 @@ export default function ProfilePage() {
                 <Input
                   label="Bairro"
                   placeholder="Centro"
-                  value={neighborhood}
-                  onChange={(e) => setNeighborhood(e.target.value)}
+                  {...register("neighborhood")}
                   fullWidth
                 />
                 <Input
                   label="Cidade"
                   placeholder="São Paulo"
-                  value={city}
-                  onChange={(e) => setCity(e.target.value)}
+                  {...register("city")}
                   fullWidth
                 />
                 <Select
                   label="Estado"
                   options={estados}
-                  value={state}
-                  onChange={(e) => setState(e.target.value)}
+                  {...register("state")}
                   fullWidth
                 />
               </div>
@@ -357,8 +483,8 @@ export default function ProfilePage() {
                   <Select
                     label="Categoria do Serviço *"
                     options={categories}
-                    value={category}
-                    onChange={(e) => setCategory(e.target.value)}
+                    {...register("categoryId")}
+                    error={errors.categoryId?.message}
                     fullWidth
                   />
 
@@ -366,17 +492,18 @@ export default function ProfilePage() {
                     label="Descrição dos Serviços *"
                     placeholder="Descreva sua experiência e os serviços que você oferece..."
                     rows={4}
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
+                    {...register("description")}
+                    error={errors.description?.message}
                     fullWidth
                   />
 
                   <Input
                     label="Valor por Hora *"
                     type="number"
+                    step="0.01"
                     placeholder="50.00"
-                    value={hourlyRate}
-                    onChange={(e) => setHourlyRate(e.target.value)}
+                    {...register("hourlyRate")}
+                    error={errors.hourlyRate?.message}
                     fullWidth
                   />
                 </CardBody>
@@ -393,8 +520,8 @@ export default function ProfilePage() {
                 </CardHeader>
                 <CardBody>
                   <ResumeUpload
-                    currentResume={undefined}
-                    onResumeChange={setResume}
+                    currentResume={watch("resumeUrl") || undefined}
+                    onResumeChange={(url) => setValue("resumeUrl", url)}
                   />
                 </CardBody>
               </Card>
@@ -416,8 +543,7 @@ export default function ProfilePage() {
                 <Select
                   label="Categoria do Serviço Procurado"
                   options={categories}
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value)}
+                  {...register("categoryId")}
                   fullWidth
                 />
 
@@ -425,24 +551,25 @@ export default function ProfilePage() {
                   label="Descrição do Serviço Anunciado *"
                   placeholder="Descreva o serviço que você precisa..."
                   rows={4}
-                  value={advertisedService}
-                  onChange={(e) => setAdvertisedService(e.target.value)}
+                  {...register("advertisedService")}
+                  error={errors.advertisedService?.message}
                   fullWidth
                 />
 
                 <Input
                   label="Orçamento Disponível *"
                   type="number"
+                  step="0.01"
                   placeholder="500.00"
-                  value={budget}
-                  onChange={(e) => setBudget(e.target.value)}
+                  {...register("budget")}
+                  error={errors.budget?.message}
                   fullWidth
                 />
               </CardBody>
             </Card>
           )}
 
-          {/* Disponibilidade - Para ambos os tipos */}
+          {/* Disponibilidade */}
           {accountType && (
             <Card>
               <CardHeader>
@@ -457,24 +584,42 @@ export default function ProfilePage() {
                 </p>
               </CardHeader>
               <CardBody>
-                <WeekScheduleSelector value={schedule} onChange={setSchedule} />
+                <WeekScheduleSelector
+                  value={availability}
+                  onChange={(schedule) => setValue("availability", schedule)}
+                />
               </CardBody>
             </Card>
           )}
 
-          {/* Botão Salvar */}
-          <div className="flex justify-end gap-4">
-            <Button type="button" variant="outline" size="lg">
+          {/* Botões */}
+          <div className="flex flex-col sm:flex-row justify-end gap-4">
+            <Button
+              type="button"
+              variant="outline"
+              size="lg"
+              onClick={() => router.push("/dashboard")}
+              className="w-full sm:w-auto"
+            >
               Cancelar
             </Button>
             <Button
               type="submit"
               size="lg"
-              variant="black"
-              className="gap-2 bg-cyan-200 text-black hover:bg-cyan-300"
+              disabled={isSubmitting}
+              className="gap-2 bg-cyan-200 text-black hover:bg-cyan-300 w-full sm:w-auto"
             >
-              <Save className="w-5 h-5" />
-              Salvar Perfil
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  Salvando...
+                </>
+              ) : (
+                <>
+                  <Save className="w-5 h-5" />
+                  Salvar Perfil
+                </>
+              )}
             </Button>
           </div>
         </form>

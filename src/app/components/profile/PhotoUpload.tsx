@@ -1,12 +1,12 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { Camera, Upload, X } from "lucide-react";
+import { Camera, Upload, X, Loader2 } from "lucide-react";
 import { Button } from "../Button";
 
 interface ProfilePhotoUploadProps {
   currentPhoto?: string;
-  onPhotoChange: (file: File | null) => void;
+  onPhotoChange: (url: string | null) => void;
 }
 
 export function ProfilePhotoUpload({
@@ -14,36 +14,77 @@ export function ProfilePhotoUpload({
   onPhotoChange,
 }: ProfilePhotoUploadProps) {
   const [preview, setPreview] = useState<string | null>(currentPhoto || null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadedPath, setUploadedPath] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      // Validação de tipo
-      if (!file.type.startsWith("image/")) {
-        alert("Por favor, selecione apenas arquivos de imagem");
-        return;
+    if (!file) return;
+
+    // Validação de tipo
+    if (!file.type.startsWith("image/")) {
+      alert("Por favor, selecione apenas arquivos de imagem");
+      return;
+    }
+
+    // Validação de tamanho (máx 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      alert("A imagem deve ter no máximo 5MB");
+      return;
+    }
+
+    // Criar preview local
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setPreview(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+
+    // Upload para R2
+    setIsUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("type", "profile");
+
+      const response = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Erro ao fazer upload");
       }
 
-      // Validação de tamanho (máx 5MB)
-      if (file.size > 5 * 1024 * 1024) {
-        alert("A imagem deve ter no máximo 5MB");
-        return;
-      }
-
-      // Criar preview
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setPreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-
-      onPhotoChange(file);
+      const data = await response.json();
+      setUploadedPath(data.path);
+      onPhotoChange(data.url);
+    } catch (error) {
+      console.error("Erro ao fazer upload:", error);
+      alert(
+        error instanceof Error ? error.message : "Erro ao fazer upload da foto"
+      );
+      setPreview(currentPhoto || null);
+    } finally {
+      setIsUploading(false);
     }
   };
 
-  const handleRemove = () => {
+  const handleRemove = async () => {
+    if (uploadedPath) {
+      try {
+        await fetch(`/api/upload?path=${uploadedPath}&type=profile`, {
+          method: "DELETE",
+        });
+      } catch (error) {
+        console.error("Erro ao deletar foto:", error);
+      }
+    }
+
     setPreview(null);
+    setUploadedPath(null);
     onPhotoChange(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
@@ -51,7 +92,9 @@ export function ProfilePhotoUpload({
   };
 
   const handleClick = () => {
-    fileInputRef.current?.click();
+    if (!isUploading) {
+      fileInputRef.current?.click();
+    }
   };
 
   return (
@@ -71,7 +114,13 @@ export function ProfilePhotoUpload({
           )}
         </div>
 
-        {preview && (
+        {isUploading && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-full">
+            <Loader2 className="w-8 h-8 text-white animate-spin" />
+          </div>
+        )}
+
+        {preview && !isUploading && (
           <button
             type="button"
             onClick={handleRemove}
@@ -88,6 +137,7 @@ export function ProfilePhotoUpload({
         accept="image/*"
         onChange={handleFileChange}
         className="hidden"
+        disabled={isUploading}
       />
 
       <Button
@@ -96,9 +146,19 @@ export function ProfilePhotoUpload({
         size="sm"
         onClick={handleClick}
         className="gap-2"
+        disabled={isUploading}
       >
-        <Upload className="w-4 h-4" />
-        {preview ? "Alterar foto" : "Adicionar foto"}
+        {isUploading ? (
+          <>
+            <Loader2 className="w-4 h-4 animate-spin" />
+            Enviando...
+          </>
+        ) : (
+          <>
+            <Upload className="w-4 h-4" />
+            {preview ? "Alterar foto" : "Adicionar foto"}
+          </>
+        )}
       </Button>
 
       <p className="text-xs text-gray-500 text-center">

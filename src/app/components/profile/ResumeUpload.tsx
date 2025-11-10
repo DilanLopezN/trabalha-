@@ -1,54 +1,99 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { FileText, Upload, X, CheckCircle } from "lucide-react";
+import { FileText, Upload, X, CheckCircle, Loader2 } from "lucide-react";
 import { Button } from "../Button";
 
 interface ResumeUploadProps {
   currentResume?: string;
-  onResumeChange: (file: File | null) => void;
+  onResumeChange: (url: string | null) => void;
 }
 
 export function ResumeUpload({
   currentResume,
   onResumeChange,
 }: ResumeUploadProps) {
-  const [file, setFile] = useState<File | null>(null);
   const [fileName, setFileName] = useState<string | null>(
-    currentResume || null
+    currentResume ? "Currículo atual" : null
   );
+  const [fileSize, setFileSize] = useState<number | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadedPath, setUploadedPath] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
-    if (selectedFile) {
-      // Validação de tipo (PDF e DOC/DOCX)
-      const validTypes = [
-        "application/pdf",
-        "application/msword",
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-      ];
+    if (!selectedFile) return;
 
-      if (!validTypes.includes(selectedFile.type)) {
-        alert("Por favor, selecione apenas arquivos PDF, DOC ou DOCX");
-        return;
+    // Validação de tipo (PDF e DOC/DOCX)
+    const validTypes = [
+      "application/pdf",
+      "application/msword",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    ];
+
+    if (!validTypes.includes(selectedFile.type)) {
+      alert("Por favor, selecione apenas arquivos PDF, DOC ou DOCX");
+      return;
+    }
+
+    // Validação de tamanho (máx 10MB)
+    if (selectedFile.size > 10 * 1024 * 1024) {
+      alert("O arquivo deve ter no máximo 10MB");
+      return;
+    }
+
+    setFileName(selectedFile.name);
+    setFileSize(selectedFile.size);
+
+    // Upload para R2
+    setIsUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", selectedFile);
+      formData.append("type", "resume");
+
+      const response = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Erro ao fazer upload");
       }
 
-      // Validação de tamanho (máx 10MB)
-      if (selectedFile.size > 10 * 1024 * 1024) {
-        alert("O arquivo deve ter no máximo 10MB");
-        return;
-      }
-
-      setFile(selectedFile);
-      setFileName(selectedFile.name);
-      onResumeChange(selectedFile);
+      const data = await response.json();
+      setUploadedPath(data.path);
+      onResumeChange(data.url);
+    } catch (error) {
+      console.error("Erro ao fazer upload:", error);
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Erro ao fazer upload do currículo"
+      );
+      setFileName(null);
+      setFileSize(null);
+    } finally {
+      setIsUploading(false);
     }
   };
 
-  const handleRemove = () => {
-    setFile(null);
+  const handleRemove = async () => {
+    if (uploadedPath) {
+      try {
+        await fetch(`/api/upload?path=${uploadedPath}&type=resume`, {
+          method: "DELETE",
+        });
+      } catch (error) {
+        console.error("Erro ao deletar currículo:", error);
+      }
+    }
+
     setFileName(null);
+    setFileSize(null);
+    setUploadedPath(null);
     onResumeChange(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
@@ -56,7 +101,9 @@ export function ResumeUpload({
   };
 
   const handleClick = () => {
-    fileInputRef.current?.click();
+    if (!isUploading) {
+      fileInputRef.current?.click();
+    }
   };
 
   const formatFileSize = (bytes: number) => {
@@ -73,6 +120,7 @@ export function ResumeUpload({
         accept=".pdf,.doc,.docx"
         onChange={handleFileChange}
         className="hidden"
+        disabled={isUploading}
       />
 
       {fileName ? (
@@ -87,50 +135,69 @@ export function ResumeUpload({
                 <p className="text-sm font-medium text-gray-900 truncate">
                   {fileName}
                 </p>
-                <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
+                {!isUploading && (
+                  <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
+                )}
+                {isUploading && (
+                  <Loader2 className="w-4 h-4 text-primary-600 animate-spin flex-shrink-0" />
+                )}
               </div>
-              {file && (
+              {fileSize && (
                 <p className="text-xs text-gray-500 mt-1">
-                  {formatFileSize(file.size)}
+                  {formatFileSize(fileSize)}
                 </p>
+              )}
+              {isUploading && (
+                <p className="text-xs text-primary-600 mt-1">Enviando...</p>
               )}
             </div>
 
-            <button
-              type="button"
-              onClick={handleRemove}
-              className="text-red-500 hover:text-red-700 transition-colors"
-            >
-              <X className="w-5 h-5" />
-            </button>
+            {!isUploading && (
+              <button
+                type="button"
+                onClick={handleRemove}
+                className="text-red-500 hover:text-red-700 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            )}
           </div>
 
-          <div className="mt-3 pt-3 border-t border-gray-200">
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={handleClick}
-              className="gap-2 w-full"
-            >
-              <Upload className="w-4 h-4" />
-              Substituir arquivo
-            </Button>
-          </div>
+          {!isUploading && (
+            <div className="mt-3 pt-3 border-t border-gray-200">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={handleClick}
+                className="gap-2 w-full"
+              >
+                <Upload className="w-4 h-4" />
+                Substituir arquivo
+              </Button>
+            </div>
+          )}
         </div>
       ) : (
         <button
           type="button"
           onClick={handleClick}
-          className="w-full border-2 border-dashed border-gray-300 rounded-lg p-8 hover:border-primary-500 hover:bg-primary-50 transition-all"
+          disabled={isUploading}
+          className="w-full border-2 border-dashed border-gray-300 rounded-lg p-8 hover:border-primary-500 hover:bg-primary-50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <div className="flex flex-col items-center gap-3">
             <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center">
-              <Upload className="w-6 h-6 text-gray-600" />
+              {isUploading ? (
+                <Loader2 className="w-6 h-6 text-gray-600 animate-spin" />
+              ) : (
+                <Upload className="w-6 h-6 text-gray-600" />
+              )}
             </div>
             <div className="text-center">
               <p className="text-sm font-medium text-gray-900">
-                Clique para fazer upload do currículo
+                {isUploading
+                  ? "Enviando currículo..."
+                  : "Clique para fazer upload do currículo"}
               </p>
               <p className="text-xs text-gray-500 mt-1">
                 PDF, DOC ou DOCX (máx. 10MB)
