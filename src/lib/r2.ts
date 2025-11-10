@@ -33,15 +33,22 @@ export function getR2Path(
   filename: string
 ) {
   const timestamp = Date.now();
-  const sanitizedFilename = filename.replace(/[^a-zA-Z0-9.-]/g, "_");
+
+  // Remover caracteres especiais do nome, mas manter a extensão
+  const nameWithoutExt =
+    filename.substring(0, filename.lastIndexOf(".")) || filename;
+  const sanitizedName = nameWithoutExt.replace(/[^a-zA-Z0-9.-]/g, "_");
+
+  // Garantir que a extensão seja válida
+  const finalFilename = sanitizedName;
 
   switch (type) {
     case "profile":
-      return `profiles/${userId}/${timestamp}-${sanitizedFilename}`;
+      return `profiles/${userId}/${timestamp}-${finalFilename}`;
     case "resume":
-      return `resumes/${userId}/${timestamp}-${sanitizedFilename}`;
+      return `resumes/${userId}/${timestamp}-${finalFilename}`;
     case "ad":
-      return `ads/${userId}/${timestamp}-${sanitizedFilename}`;
+      return `ads/${userId}/${timestamp}-${finalFilename}`;
     default:
       throw new Error("Tipo de arquivo inválido");
   }

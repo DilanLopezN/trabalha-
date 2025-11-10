@@ -8,6 +8,7 @@ import { EmployerProfile, SearchResult, WorkerProfile } from "@/interfaces";
 interface ResultsProps {
   results: SearchResult[];
   isLoading: boolean;
+  onOpenProfile: (result: SearchResult) => void;
 }
 
 function HighlightBadge({ plan }: { plan?: string }) {
@@ -32,24 +33,40 @@ function HighlightBadge({ plan }: { plan?: string }) {
   );
 }
 
-function WorkerCard({ result }: { result: SearchResult }) {
+function WorkerCard({
+  result,
+  onOpenProfile,
+}: {
+  result: SearchResult;
+  onOpenProfile: (result: SearchResult) => void;
+}) {
   const profile = result.profile as WorkerProfile;
-  const whatsappLink = result.whatsapp
-    ? `https://wa.me/${result.whatsapp}?text=${encodeURIComponent(
-        `Olá! Tenho interesse nos seus serviços de ${profile.category?.name}. Podemos conversar?`
-      )}`
-    : null;
 
   return (
-    <Card className="relative hover:shadow-md transition-shadow">
+    <Card
+      className="relative hover:shadow-lg transition-all cursor-pointer"
+      onClick={() => onOpenProfile(result)}
+    >
       <HighlightBadge plan={result.highlightPlan} />
       <CardBody className="space-y-4">
         <div className="flex items-start gap-4">
-          <div className="w-16 h-16 bg-primary-100 rounded-full flex items-center justify-center flex-shrink-0">
-            <span className="text-2xl font-bold text-primary-600">
-              {result.name.charAt(0).toUpperCase()}
-            </span>
+          {/* Foto de perfil */}
+          <div className="w-16 h-16 rounded-full overflow-hidden bg-primary-100 flex-shrink-0">
+            {result.image ? (
+              <img
+                src={result.image}
+                alt={result.name}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center">
+                <span className="text-2xl font-bold text-primary-600">
+                  {result.name.charAt(0).toUpperCase()}
+                </span>
+              </div>
+            )}
           </div>
+
           <div className="flex-1 min-w-0">
             <h3 className="text-lg font-semibold text-gray-900 truncate">
               {result.name}
@@ -69,7 +86,7 @@ function WorkerCard({ result }: { result: SearchResult }) {
         <div className="space-y-2">
           <div className="flex items-center gap-2 text-sm text-gray-600">
             <DollarSign className="w-4 h-4" />
-            <span>Preço médio: R$ {profile.averagePrice.toFixed(2)}</span>
+            <span>R$ {profile.averagePrice.toFixed(2)}/hora</span>
           </div>
 
           <div className="flex items-center gap-2 text-sm text-gray-600">
@@ -81,41 +98,58 @@ function WorkerCard({ result }: { result: SearchResult }) {
           </div>
         </div>
 
-        {whatsappLink && (
+        <div className="pt-2">
           <Button
             fullWidth
-            variant="primary"
-            size="md"
-            onClick={() => window.open(whatsappLink, "_blank")}
-            className="gap-2"
+            variant="outline"
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              onOpenProfile(result);
+            }}
           >
-            <MessageCircle className="w-4 h-4" />
-            Conversar no WhatsApp
+            Ver Perfil Completo
           </Button>
-        )}
+        </div>
       </CardBody>
     </Card>
   );
 }
 
-function EmployerCard({ result }: { result: SearchResult }) {
+function EmployerCard({
+  result,
+  onOpenProfile,
+}: {
+  result: SearchResult;
+  onOpenProfile: (result: SearchResult) => void;
+}) {
   const profile = result.profile as EmployerProfile;
-  const whatsappLink = result.whatsapp
-    ? `https://wa.me/${result.whatsapp}?text=${encodeURIComponent(
-        `Olá! Tenho interesse no trabalho de ${profile.advertisedService}. Podemos conversar?`
-      )}`
-    : null;
 
   return (
-    <Card className="relative hover:shadow-md transition-shadow">
+    <Card
+      className="relative hover:shadow-lg transition-all cursor-pointer"
+      onClick={() => onOpenProfile(result)}
+    >
       <HighlightBadge plan={result.highlightPlan} />
       <CardBody className="space-y-4">
         <div className="flex items-start gap-4">
-          <div className="w-16 h-16 bg-primary-100 rounded-full flex items-center justify-center flex-shrink-0">
-            <span className="text-2xl font-bold text-primary-600">
-              {result.name.charAt(0).toUpperCase()}
-            </span>
+          {/* Foto de perfil */}
+          <div className="w-16 h-16 rounded-full overflow-hidden bg-primary-100 flex-shrink-0">
+            {result.image ? (
+              <img
+                src={result.image}
+                alt={result.name}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center">
+                <span className="text-2xl font-bold text-primary-600">
+                  {result.name.charAt(0).toUpperCase()}
+                </span>
+              </div>
+            )}
           </div>
+
           <div className="flex-1 min-w-0">
             <h3 className="text-lg font-semibold text-gray-900 truncate">
               {result.name}
@@ -128,7 +162,9 @@ function EmployerCard({ result }: { result: SearchResult }) {
           <p className="text-sm font-medium text-gray-700 mb-1">
             Serviço Anunciado:
           </p>
-          <p className="text-sm text-gray-900">{profile.advertisedService}</p>
+          <p className="text-sm text-gray-900 line-clamp-2">
+            {profile.advertisedService}
+          </p>
         </div>
 
         <div className="space-y-2">
@@ -145,24 +181,25 @@ function EmployerCard({ result }: { result: SearchResult }) {
           )}
         </div>
 
-        {whatsappLink && (
+        <div className="pt-2">
           <Button
             fullWidth
-            variant="primary"
-            size="md"
-            onClick={() => window.open(whatsappLink, "_blank")}
-            className="gap-2"
+            variant="outline"
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              onOpenProfile(result);
+            }}
           >
-            <MessageCircle className="w-4 h-4" />
-            Conversar no WhatsApp
+            Ver Perfil Completo
           </Button>
-        )}
+        </div>
       </CardBody>
     </Card>
   );
 }
 
-export function Results({ results, isLoading }: ResultsProps) {
+export function Results({ results, isLoading, onOpenProfile }: ResultsProps) {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -204,9 +241,17 @@ export function Results({ results, isLoading }: ResultsProps) {
       <div className="grid gap-4">
         {results.map((result) =>
           result.role === "PRESTADOR" ? (
-            <WorkerCard key={result.id} result={result} />
+            <WorkerCard
+              key={result.id}
+              result={result}
+              onOpenProfile={onOpenProfile}
+            />
           ) : (
-            <EmployerCard key={result.id} result={result} />
+            <EmployerCard
+              key={result.id}
+              result={result}
+              onOpenProfile={onOpenProfile}
+            />
           )
         )}
       </div>

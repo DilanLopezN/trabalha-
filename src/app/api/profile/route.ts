@@ -109,14 +109,36 @@ export async function PUT(req: NextRequest) {
       );
     }
 
-    // Atualizar dados básicos do usuário (incluindo foto)
+    // Verificar se a categoria existe (se fornecida)
+    if (validatedData.categoryId) {
+      const categoryExists = await prisma.category.findUnique({
+        where: { id: validatedData.categoryId },
+      });
+
+      if (!categoryExists) {
+        return NextResponse.json(
+          { error: `Categoria não encontrada` },
+          { status: 400 }
+        );
+      }
+    }
+
+    // Atualizar dados básicos do usuário (incluindo endereço)
     await prisma.user.update({
       where: { id: user.id },
       data: {
         name: validatedData.name,
         whatsapp: validatedData.whatsapp,
         cnpj: validatedData.cnpj,
-        image: body.profilePhotoUrl || user.image, // ADICIONAR
+        image: body.profilePhotoUrl || user.image,
+        // Endereço
+        cep: body.address?.cep || user.cep,
+        street: body.address?.street || user.street,
+        number: body.address?.number || user.number,
+        complement: body.address?.complement || user.complement,
+        neighborhood: body.address?.neighborhood || user.neighborhood,
+        city: body.address?.city || user.city,
+        state: body.address?.state || user.state,
       },
     });
 
@@ -142,7 +164,7 @@ export async function PUT(req: NextRequest) {
             averagePrice:
               validatedData.hourlyRate || user.workerProfile.averagePrice,
             availability: availability,
-            resumeUrl: body.resumeUrl || user.workerProfile.resumeUrl, // ADICIONAR
+            resumeUrl: body.resumeUrl || user.workerProfile.resumeUrl,
           },
         });
       } else if (validatedData.categoryId) {
@@ -153,7 +175,7 @@ export async function PUT(req: NextRequest) {
             description: validatedData.description || "",
             averagePrice: validatedData.hourlyRate || 0,
             availability: availability,
-            resumeUrl: body.resumeUrl || null, // ADICIONAR
+            resumeUrl: body.resumeUrl || null,
           },
         });
       }

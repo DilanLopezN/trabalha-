@@ -31,6 +31,7 @@ export interface User {
 }
 
 export interface WorkerProfile {
+  resumeUrl: boolean;
   id: string;
   userId: string;
   categoryId: string;
@@ -98,9 +99,11 @@ export interface SearchFilters {
 }
 
 export interface SearchResult {
+  image?: string;
   id: string;
   name: string;
   role: UserRole;
+  imageUrl?: string;
   whatsapp?: string;
   profile: WorkerProfile | EmployerProfile;
   highlightPlan?: HighlightPlanCode;

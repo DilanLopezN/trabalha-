@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
@@ -16,6 +16,7 @@ import {
   Save,
   ArrowLeft,
   Loader2,
+  Search,
 } from "lucide-react";
 
 import { Card, CardBody, CardHeader } from "../components/Card";
@@ -26,19 +27,6 @@ import { Button } from "../components/Button";
 import { ProfilePhotoUpload } from "../components/profile/PhotoUpload";
 import { ResumeUpload } from "../components/profile/ResumeUpload";
 import { WeekScheduleSelector } from "../components/WeekSelector";
-
-const categories = [
-  { value: "", label: "Selecione uma categoria" },
-  { value: "1", label: "Elétrica" },
-  { value: "2", label: "Hidráulica" },
-  { value: "3", label: "Limpeza" },
-  { value: "4", label: "Pintura" },
-  { value: "5", label: "Marcenaria" },
-  { value: "6", label: "Jardinagem" },
-  { value: "7", label: "Babá" },
-  { value: "8", label: "Cuidador" },
-  { value: "9", label: "Pedreiro" },
-];
 
 const estados = [
   { value: "", label: "Selecione o estado" },
@@ -120,6 +108,11 @@ type ProfileFormData = z.infer<typeof profileSchema>;
 export default function ProfilePage() {
   const router = useRouter();
   const { data: session, status } = useSession();
+  const [categories, setCategories] = useState<
+    { value: string; label: string }[]
+  >([]);
+  const [isLoadingCategories, setIsLoadingCategories] = useState(true);
+  const [isLoadingCep, setIsLoadingCep] = useState(false);
 
   const {
     register,
@@ -137,20 +130,49 @@ export default function ProfilePage() {
 
   const accountType = session?.user?.role;
   const availability = watch("availability") || {};
+  const cep = watch("cep");
 
   useEffect(() => {
     if (status === "unauthenticated") {
       router.push("/auth/signin");
     } else if (status === "authenticated") {
+      loadCategories();
       loadProfile();
     }
   }, [status, router]);
+
+  const loadCategories = async () => {
+    setIsLoadingCategories(true);
+    try {
+      const response = await fetch("/api/categories");
+      if (response.ok) {
+        const { categories: cats } = await response.json();
+        console.log("📦 Categorias carregadas:", cats);
+        setCategories([
+          { value: "", label: "Selecione uma categoria" },
+          ...cats.map((cat: any) => ({
+            value: cat.id,
+            label: cat.name,
+          })),
+        ]);
+      } else {
+        console.error("❌ Erro ao carregar categorias");
+        setCategories([{ value: "", label: "Erro ao carregar categorias" }]);
+      }
+    } catch (error) {
+      console.error("❌ Erro ao carregar categorias:", error);
+      setCategories([{ value: "", label: "Erro ao carregar categorias" }]);
+    } finally {
+      setIsLoadingCategories(false);
+    }
+  };
 
   const loadProfile = async () => {
     try {
       const response = await fetch("/api/profile");
       if (response.ok) {
         const { user } = await response.json();
+        console.log("👤 Perfil carregado:", user);
 
         // Preparar dados para o formulário
         const formData: Partial<ProfileFormData> = {
@@ -158,7 +180,15 @@ export default function ProfilePage() {
           email: user.email || "",
           whatsapp: user.whatsapp || "",
           cnpj: user.cnpj || "",
-          profilePhotoUrl: user.image || null,
+          profilePhotoUrl: user.image || null, // Carregar foto
+          // Endereço
+          cep: user.cep || "",
+          street: user.street || "",
+          number: user.number || "",
+          complement: user.complement || "",
+          neighborhood: user.neighborhood || "",
+          city: user.city || "",
+          state: user.state || "",
         };
 
         // Carregar perfil específico
@@ -200,11 +230,60 @@ export default function ProfilePage() {
         reset(formData);
       }
     } catch (error) {
-      console.error("Erro ao carregar perfil:", error);
+      console.error("❌ Erro ao carregar perfil:", error);
+    }
+  };
+
+  const searchCep = async () => {
+    if (!cep) return;
+
+    const cleanCep = cep.replace(/\D/g, "");
+    if (cleanCep.length !== 8) {
+      alert("CEP inválido. Digite 8 dígitos.");
+      return;
+    }
+
+    setIsLoadingCep(true);
+    try {
+      const response = await fetch(`/api/cep?cep=${cleanCep}`);
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log("📍 Endereço encontrado:", data);
+
+        // Preencher os campos
+        setValue("street", data.street || "");
+        setValue("neighborhood", data.neighborhood || "");
+        setValue("city", data.city || "");
+        setValue("state", data.state || "");
+        if (data.complement) {
+          setValue("complement", data.complement);
+        }
+
+        // Focar no campo número
+        setTimeout(() => {
+          const numberInput = document.querySelector(
+            'input[name="number"]'
+          ) as HTMLInputElement;
+          if (numberInput) {
+            numberInput.focus();
+          }
+        }, 100);
+      } else {
+        const error = await response.json();
+        alert(error.error || "CEP não encontrado");
+      }
+    } catch (error) {
+      console.error("❌ Erro ao buscar CEP:", error);
+      alert("Erro ao buscar CEP. Tente novamente.");
+    } finally {
+      setIsLoadingCep(false);
     }
   };
 
   const onSubmit = async (data: ProfileFormData) => {
+    console.log("🔍 Dados do formulário:", data);
+
     try {
       const response = await fetch("/api/profile", {
         method: "PUT",
@@ -238,10 +317,11 @@ export default function ProfilePage() {
         router.push("/dashboard");
       } else {
         const error = await response.json();
+        console.error("❌ Erro da API:", error);
         alert(`Erro: ${error.error}`);
       }
     } catch (error) {
-      console.error("Erro ao salvar perfil:", error);
+      console.error("❌ Erro ao salvar perfil:", error);
       alert("Erro ao salvar perfil");
     }
   };
@@ -271,7 +351,7 @@ export default function ProfilePage() {
     return numbers.replace(/^(\d{5})(\d)/, "$1-$2").substring(0, 9);
   };
 
-  if (status === "loading") {
+  if (status === "loading" || isLoadingCategories) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -406,17 +486,44 @@ export default function ProfilePage() {
               </div>
             </CardHeader>
             <CardBody className="space-y-4">
+              <div className="flex gap-2">
+                <div className="flex-1">
+                  <Input
+                    label="CEP"
+                    placeholder="00000-000"
+                    {...register("cep")}
+                    onChange={(e) => {
+                      const formatted = formatCEP(e.target.value);
+                      setValue("cep", formatted);
+                    }}
+                    onKeyPress={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        searchCep();
+                      }
+                    }}
+                    fullWidth
+                  />
+                </div>
+                <div className="flex items-end">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={searchCep}
+                    disabled={isLoadingCep}
+                    className="gap-2"
+                  >
+                    {isLoadingCep ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Search className="w-4 h-4" />
+                    )}
+                    Buscar
+                  </Button>
+                </div>
+              </div>
+
               <div className="grid md:grid-cols-3 gap-4">
-                <Input
-                  label="CEP"
-                  placeholder="00000-000"
-                  {...register("cep")}
-                  onChange={(e) => {
-                    const formatted = formatCEP(e.target.value);
-                    setValue("cep", formatted);
-                  }}
-                  fullWidth
-                />
                 <div className="md:col-span-2">
                   <Input
                     label="Rua"
@@ -425,24 +532,20 @@ export default function ProfilePage() {
                     fullWidth
                   />
                 </div>
-              </div>
-
-              <div className="grid md:grid-cols-3 gap-4">
                 <Input
                   label="Número"
                   placeholder="123"
                   {...register("number")}
                   fullWidth
                 />
-                <div className="md:col-span-2">
-                  <Input
-                    label="Complemento"
-                    placeholder="Apto 45"
-                    {...register("complement")}
-                    fullWidth
-                  />
-                </div>
               </div>
+
+              <Input
+                label="Complemento"
+                placeholder="Apto 45"
+                {...register("complement")}
+                fullWidth
+              />
 
               <div className="grid md:grid-cols-3 gap-4">
                 <Input
