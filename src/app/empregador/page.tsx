@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Plus,
   Edit,
@@ -38,9 +38,14 @@ interface Vaga {
 
 export default function EmpregadorPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { data: session, status } = useSession();
   const [vagas, setVagas] = useState<Vaga[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [statusMessage, setStatusMessage] = useState<{
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -53,6 +58,21 @@ export default function EmpregadorPage() {
       }
     }
   }, [status, session, router]);
+
+  useEffect(() => {
+    const checkoutStatus = searchParams.get("checkout");
+    if (checkoutStatus === "success") {
+      setStatusMessage({
+        type: "success",
+        text: "Pagamento confirmado! Seus anúncios destacados serão publicados em breve.",
+      });
+    } else if (checkoutStatus === "cancelled") {
+      setStatusMessage({
+        type: "error",
+        text: "Pagamento cancelado. Nenhum anúncio adicional foi criado.",
+      });
+    }
+  }, [searchParams]);
 
   const loadVagas = async () => {
     try {
@@ -94,6 +114,18 @@ export default function EmpregadorPage() {
           </p>
         </div>
 
+        {statusMessage && (
+          <div
+            className={`mb-6 rounded-lg border px-4 py-3 text-sm ${
+              statusMessage.type === "success"
+                ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                : "border-red-200 bg-red-50 text-red-700"
+            }`}
+          >
+            {statusMessage.text}
+          </div>
+        )}
+
         {/* CTA Card */}
         <Card className="mb-8 bg-gradient-to-br from-primary-600 to-primary-700 border-0">
           <CardBody className="py-8">
@@ -127,11 +159,21 @@ export default function EmpregadorPage() {
                   </li>
                 </ul>
               </div>
-              <div>
-                <Link href="/empregador/criar">
-                  <Button size="lg" variant="secondary" className="gap-2">
+              <div className="flex flex-col gap-3 w-full md:w-auto">
+                <Link href="/empregador/criar" className="w-full">
+                  <Button size="lg" variant="secondary" className="gap-2 w-full">
                     <Plus className="w-5 h-5" />
                     Criar Nova Vaga
+                  </Button>
+                </Link>
+                <Link href="/empregador/anunciar" className="w-full">
+                  <Button
+                    size="lg"
+                    variant="ghost"
+                    className="gap-2 w-full border border-white/40 text-white hover:bg-white/10"
+                  >
+                    <Eye className="w-5 h-5" />
+                    Comprar Anúncio Destaque
                   </Button>
                 </Link>
               </div>

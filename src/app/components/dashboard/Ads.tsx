@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { Ad } from "@/interfaces";
 import { Card, CardBody } from "../Card";
 import { ExternalLink } from "lucide-react";
@@ -95,9 +96,12 @@ export function Ads({ ads }: AdsProps) {
           <p className="text-sm text-primary-100">
             Apareça primeiro nas buscas e conquiste mais clientes
           </p>
-          <button className="mt-2 bg-white text-primary-600 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-100 transition-colors">
+          <Link
+            href="/prestador/comprar-destaque"
+            className="inline-flex items-center justify-center mt-2 bg-white text-primary-600 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-100 transition-colors"
+          >
             Comprar Destaque
-          </button>
+          </Link>
         </CardBody>
       </Card>
     </div>

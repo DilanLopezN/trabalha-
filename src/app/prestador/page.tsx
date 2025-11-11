@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Plus,
   Edit,
@@ -30,9 +30,14 @@ interface Highlight {
 
 export default function PrestadorPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { data: session, status } = useSession();
   const [highlights, setHighlights] = useState<Highlight[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [statusMessage, setStatusMessage] = useState<{
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -45,6 +50,21 @@ export default function PrestadorPage() {
       }
     }
   }, [status, session, router]);
+
+  useEffect(() => {
+    const checkoutStatus = searchParams.get("checkout");
+    if (checkoutStatus === "success") {
+      setStatusMessage({
+        type: "success",
+        text: "Pagamento confirmado! Seus destaques serão atualizados em instantes.",
+      });
+    } else if (checkoutStatus === "cancelled") {
+      setStatusMessage({
+        type: "error",
+        text: "Pagamento cancelado. Nenhuma cobrança foi realizada.",
+      });
+    }
+  }, [searchParams]);
 
   const loadHighlights = async () => {
     try {
@@ -155,6 +175,18 @@ export default function PrestadorPage() {
             Gerencie seus planos de destaque e apareça primeiro nas buscas
           </p>
         </div>
+
+        {statusMessage && (
+          <div
+            className={`mb-6 rounded-lg border px-4 py-3 text-sm ${
+              statusMessage.type === "success"
+                ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                : "border-red-200 bg-red-50 text-red-700"
+            }`}
+          >
+            {statusMessage.text}
+          </div>
+        )}
 
         {/* CTA Card */}
         <Card className="mb-8 bg-gradient-to-br from-primary-600 to-primary-700 border-0">
