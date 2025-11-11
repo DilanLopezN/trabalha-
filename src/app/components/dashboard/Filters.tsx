@@ -76,6 +76,20 @@ export function Filters({
         </div>
       </div>
 
+      <div>
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={localFilters.showVagas || false}
+            onChange={(e) => handleChange("showVagas", e.target.checked)}
+            className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+          />
+          <span className="text-sm font-medium text-gray-700">
+            Mostrar Vagas
+          </span>
+        </label>
+      </div>
+
       {/* Busca por texto */}
       <div>
         <Input

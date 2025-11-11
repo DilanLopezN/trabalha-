@@ -15,6 +15,7 @@ import { Filters } from "../components/dashboard/Filters";
 import { CompleteProfileAlert } from "../components/AlertConfigureProfile";
 import { ProfileModal } from "../components/dashboard/ProfileModal";
 import { Header } from "../components/dashboard/Header";
+import { VagaCard } from "../components/dashboard/VagaCard";
 
 export default function DashboardPage() {
   const { data: session } = useSession();
@@ -22,8 +23,9 @@ export default function DashboardPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [filters, setFilters] = useState<SearchFilters>({
     type: "workers",
+    showVagas: false,
   });
-
+  const [vagas, setVagas] = useState<any[]>([]);
   const [results, setResults] = useState<SearchResult[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [showMobileFilters, setShowMobileFilters] = useState(false);
@@ -43,6 +45,18 @@ export default function DashboardPage() {
   useEffect(() => {
     loadResults();
   }, [filters]);
+
+  const loadVagas = async () => {
+    try {
+      const response = await fetch("/api/vagas");
+      if (response.ok) {
+        const data = await response.json();
+        setVagas(data.vagas || []);
+      }
+    } catch (error) {
+      console.error("Erro ao carregar vagas:", error);
+    }
+  };
 
   const checkProfileStatus = async () => {
     try {
@@ -138,6 +152,55 @@ export default function DashboardPage() {
     setTimeout(() => setSelectedProfile(null), 300);
   };
 
+  useEffect(() => {
+    if (filters.showVagas) {
+      loadVagas();
+    } else {
+      loadResults();
+    }
+  }, [filters]);
+
+  const handleFavoritar = async (vagaId: string) => {
+    try {
+      const favorito = vagas.find((v: any) => v.id === vagaId);
+      if (favorito?.favoritos?.length > 0) {
+        await fetch(`/api/vagas/favoritar?vagaId=${vagaId}`, {
+          method: "DELETE",
+        });
+      } else {
+        await fetch("/api/vagas/favoritar", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ vagaId }),
+        });
+      }
+      loadVagas();
+    } catch (error) {
+      console.error("Erro ao favoritar:", error);
+    }
+  };
+
+  const handleCandidatar = async (vagaId: string) => {
+    const mensagem = prompt("Mensagem opcional para o empregador:");
+    try {
+      const response = await fetch("/api/vagas/candidatar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ vagaId, mensagem }),
+      });
+
+      if (response.ok) {
+        alert("Candidatura enviada com sucesso!");
+        loadVagas();
+      } else {
+        const error = await response.json();
+        alert(error.error || "Erro ao candidatar-se");
+      }
+    } catch (error) {
+      console.error("Erro ao candidatar:", error);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -166,11 +229,24 @@ export default function DashboardPage() {
 
           {/* Main Content - Resultados */}
           <main className="lg:col-span-9">
-            <Results
-              results={results}
-              isLoading={isLoading}
-              onOpenProfile={handleOpenProfile}
-            />
+            {filters.showVagas ? (
+              <div className="grid gap-4">
+                {vagas.map((vaga: any) => (
+                  <VagaCard
+                    key={vaga.id}
+                    vaga={vaga}
+                    onFavoritar={handleFavoritar}
+                    onCandidatar={handleCandidatar}
+                  />
+                ))}
+              </div>
+            ) : (
+              <Results
+                results={results}
+                isLoading={isLoading}
+                onOpenProfile={handleOpenProfile}
+              />
+            )}
           </main>
         </div>
       </div>

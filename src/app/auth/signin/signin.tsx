@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
-import { signIn } from "next-auth/react";
+import { signIn, useSession } from "next-auth/react";
 
-import { Mail, Lock, Chrome } from "lucide-react";
+import { Mail, Lock, Chrome, Loader2 } from "lucide-react";
 import { Card, CardBody, CardHeader } from "@/app/components/Card";
 import { Input } from "@/app/components/Input";
 import { Button } from "@/app/components/Button";
@@ -13,6 +13,7 @@ import { Button } from "@/app/components/Button";
 export default function SignInPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { data: session, status } = useSession();
   const isRegister = searchParams.get("register") === "true";
   const role = searchParams.get("role");
 
@@ -20,7 +21,17 @@ export default function SignInPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
+  const [selectedRole, setSelectedRole] = useState<"PRESTADOR" | "EMPREGADOR">(
+    (role as "PRESTADOR" | "EMPREGADOR") || "PRESTADOR"
+  );
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // Redirecionar se já estiver autenticado
+  useEffect(() => {
+    if (status === "authenticated") {
+      router.push("/dashboard");
+    }
+  }, [status, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -60,7 +71,7 @@ export default function SignInPage() {
             email,
             password,
             name,
-            role: role || "PRESTADOR",
+            role: selectedRole,
           }),
         });
 
@@ -110,12 +121,28 @@ export default function SignInPage() {
   const handleGoogleSignIn = async () => {
     setIsLoading(true);
     try {
-      await signIn("google", { callbackUrl: "/dashboard" });
+      await signIn("google", {
+        callbackUrl: "/dashboard",
+        redirect: true,
+      });
     } catch (error) {
+      console.error("Erro ao fazer login com Google:", error);
       setErrors({ general: "Erro ao fazer login com Google" });
       setIsLoading(false);
     }
   };
+
+  // Mostrar loading enquanto verifica autenticação
+  if (status === "loading") {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-primary-50 to-white flex items-center justify-center px-4 py-12">
+        <div className="text-center">
+          <Loader2 className="w-12 h-12 text-primary-600 animate-spin mx-auto mb-4" />
+          <p className="text-gray-600">Carregando...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-primary-50 to-white flex items-center justify-center px-4 py-12">
@@ -152,16 +179,65 @@ export default function SignInPage() {
 
             <form onSubmit={handleSubmit} className="space-y-4">
               {isRegister && (
-                <Input
-                  label="Nome completo"
-                  type="text"
-                  placeholder="João Silva"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  error={errors.name}
-                  disabled={isLoading}
-                  fullWidth
-                />
+                <>
+                  <Input
+                    label="Nome completo"
+                    type="text"
+                    placeholder="João Silva"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    error={errors.name}
+                    disabled={isLoading}
+                    fullWidth
+                  />
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Tipo de Conta
+                    </label>
+                    <div className="grid grid-cols-2 gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedRole("PRESTADOR")}
+                        className={`p-4 rounded-lg border-2 transition-all ${
+                          selectedRole === "PRESTADOR"
+                            ? "border-primary-600 bg-primary-50"
+                            : "border-gray-300 hover:border-gray-400"
+                        }`}
+                      >
+                        <div className="text-center">
+                          <div className="text-2xl mb-2">👷</div>
+                          <div className="font-medium text-gray-900">
+                            Prestador
+                          </div>
+                          <div className="text-xs text-gray-600 mt-1">
+                            Ofereço serviços
+                          </div>
+                        </div>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setSelectedRole("EMPREGADOR")}
+                        className={`p-4 rounded-lg border-2 transition-all ${
+                          selectedRole === "EMPREGADOR"
+                            ? "border-primary-600 bg-primary-50"
+                            : "border-gray-300 hover:border-gray-400"
+                        }`}
+                      >
+                        <div className="text-center">
+                          <div className="text-2xl mb-2">💼</div>
+                          <div className="font-medium text-gray-900">
+                            Empregador
+                          </div>
+                          <div className="text-xs text-gray-600 mt-1">
+                            Procuro profissionais
+                          </div>
+                        </div>
+                      </button>
+                    </div>
+                  </div>
+                </>
               )}
 
               <div className="relative">
@@ -204,11 +280,16 @@ export default function SignInPage() {
               )}
 
               <Button type="submit" fullWidth size="lg" disabled={isLoading}>
-                {isLoading
-                  ? "Processando..."
-                  : isRegister
-                  ? "Criar Conta"
-                  : "Entrar"}
+                {isLoading ? (
+                  <div className="flex items-center gap-2">
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    Processando...
+                  </div>
+                ) : isRegister ? (
+                  "Criar Conta"
+                ) : (
+                  "Entrar"
+                )}
               </Button>
             </form>
 
@@ -232,7 +313,11 @@ export default function SignInPage() {
               disabled={isLoading}
               className="gap-2"
             >
-              <Chrome className="w-5 h-5" />
+              {isLoading ? (
+                <Loader2 className="w-5 h-5 animate-spin" />
+              ) : (
+                <Chrome className="w-5 h-5" />
+              )}
               Google
             </Button>
 

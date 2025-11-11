@@ -9,6 +9,7 @@ export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
   session: {
     strategy: "jwt",
+    maxAge: 60 * 60, // 1 hora em segundos
   },
   pages: {
     signIn: "/auth/signin",
@@ -60,41 +61,78 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   callbacks: {
-    async signIn({ user, account }) {
-      // Se for login com Google, verificar/criar role padrão
-      if (account?.provider === "google") {
-        const existingUser = await prisma.user.findUnique({
-          where: { email: user.email! },
-        });
-
-        // Se usuário não tem role definido, setar PRESTADOR como padrão
-        if (existingUser && !existingUser.role) {
-          await prisma.user.update({
-            where: { id: existingUser.id },
-            data: { role: "PRESTADOR" },
+    async signIn({ user, account, profile }) {
+      try {
+        // Se for login com Google
+        if (account?.provider === "google") {
+          const existingUser = await prisma.user.findUnique({
+            where: { email: user.email! },
           });
+
+          if (existingUser) {
+            // Atualizar informações do usuário se necessário
+            await prisma.user.update({
+              where: { id: existingUser.id },
+              data: {
+                name: user.name || existingUser.name,
+                image: user.image || existingUser.image,
+                // Garantir que tem role
+                role: existingUser.role || "PRESTADOR",
+              },
+            });
+          } else {
+            // Criar novo usuário com role padrão
+            await prisma.user.create({
+              data: {
+                email: user.email!,
+                name: user.name,
+                image: user.image,
+                role: "PRESTADOR",
+              },
+            });
+          }
         }
+        return true;
+      } catch (error) {
+        console.error("Erro no signIn callback:", error);
+        return false;
       }
-      return true;
     },
 
-    async jwt({ token, user, trigger, session }) {
-      // Adicionar informações extras no token
+    async jwt({ token, user, trigger, session, account }) {
+      // Primeiro login - adicionar informações do usuário
       if (user) {
         token.id = user.id;
         token.role = user.role;
+      }
+
+      // Login com Google - buscar informações atualizadas
+      if (account?.provider === "google") {
+        const dbUser = await prisma.user.findUnique({
+          where: { email: token.email! },
+          select: { id: true, role: true, name: true, image: true },
+        });
+
+        if (dbUser) {
+          token.id = dbUser.id;
+          token.role = dbUser.role;
+          token.name = dbUser.name;
+          token.picture = dbUser.image;
+        }
       }
 
       // Buscar role atualizado do banco se não estiver no token
       if (!token.role && token.email) {
         const dbUser = await prisma.user.findUnique({
           where: { email: token.email },
-          select: { id: true, role: true },
+          select: { id: true, role: true, name: true, image: true },
         });
 
         if (dbUser) {
           token.id = dbUser.id;
           token.role = dbUser.role;
+          token.name = dbUser.name;
+          token.picture = dbUser.image;
         }
       }
 
@@ -112,9 +150,17 @@ export const authOptions: NextAuthOptions = {
       if (token && session.user) {
         session.user.id = token.id as string;
         session.user.role = token.role as "PRESTADOR" | "EMPREGADOR";
+        session.user.name = token.name as string;
+        session.user.image = token.picture as string;
       }
 
       return session;
+    },
+  },
+  events: {
+    async signOut({ token }) {
+      // Limpar qualquer dado necessário ao fazer logout
+      console.log("Usuário deslogado:", token.email);
     },
   },
   secret: process.env.NEXTAUTH_SECRET,

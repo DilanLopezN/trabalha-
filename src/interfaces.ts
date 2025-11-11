@@ -94,6 +94,7 @@ export interface SearchFilters {
   minPrice?: number;
   maxPrice?: number;
   minBudget?: number;
+  showVagas?: boolean;
   maxBudget?: number;
   q?: string;
 }
