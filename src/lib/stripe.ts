@@ -3,11 +3,7 @@ import Stripe from "stripe";
 let stripeClient: Stripe | null = null;
 
 function resolveSecretKey() {
-  return (
-    process.env.STRIPE_SECRET_KEY ||
-    process.env.STRIPE_TEST_SECRET_KEY ||
-    null
-  );
+  return process.env.STRIPE_TEST_SECRET_KEY || null;
 }
 
 export function getStripeClient() {

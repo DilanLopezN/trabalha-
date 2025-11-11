@@ -44,7 +44,8 @@ async function handleHighlightPurchase(
   });
 
   if (activeHighlight) {
-    const baseDate = activeHighlight.endsAt > now ? activeHighlight.endsAt : now;
+    const baseDate =
+      activeHighlight.endsAt > now ? activeHighlight.endsAt : now;
     const newEndsAt = addDays(baseDate, plan.durationDays);
     await prisma.highlight.update({
       where: { id: activeHighlight.id },
@@ -117,11 +118,14 @@ async function handleAdPurchase(metadata: Stripe.Metadata, planId: string) {
 }
 
 export async function POST(req: Request) {
-  const signature = headers().get("stripe-signature");
+  const signature = (await headers()).get("stripe-signature");
 
   if (!WEBHOOK_SECRET) {
     console.error("STRIPE_WEBHOOK_SECRET não configurada");
-    return NextResponse.json({ error: "Webhook não configurado" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Webhook não configurado" },
+      { status: 500 }
+    );
   }
 
   if (!signature) {
@@ -154,7 +158,9 @@ export async function POST(req: Request) {
         return NextResponse.json({ received: true });
       }
 
-      const plan = await prisma.highlightPlan.findUnique({ where: { id: planId } });
+      const plan = await prisma.highlightPlan.findUnique({
+        where: { id: planId },
+      });
 
       if (!plan) {
         console.warn("Plano informado na metadata não encontrado", { planId });
@@ -174,7 +180,10 @@ export async function POST(req: Request) {
     return NextResponse.json({ received: true });
   } catch (error) {
     console.error("Erro ao processar webhook do Stripe:", error);
-    return NextResponse.json({ error: "Erro ao processar webhook" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Erro ao processar webhook" },
+      { status: 500 }
+    );
   }
 }
 

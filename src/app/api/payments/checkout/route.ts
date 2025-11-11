@@ -18,7 +18,7 @@ const requestSchema = z.object({
 });
 
 function ensureStripeConfigured() {
-  if (!process.env.STRIPE_SECRET_KEY && !process.env.STRIPE_TEST_SECRET_KEY) {
+  if (!process.env.STRIPE_TEST_SECRET_KEY) {
     throw new Error(
       "Stripe não está configurado. Defina STRIPE_SECRET_KEY ou STRIPE_TEST_SECRET_KEY."
     );
@@ -57,7 +57,10 @@ export async function POST(req: NextRequest) {
     });
 
     if (!user) {
-      return NextResponse.json({ error: "Usuário não encontrado" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Usuário não encontrado" },
+        { status: 404 }
+      );
     }
 
     const rawBody = await req.json();
@@ -93,10 +96,16 @@ export async function POST(req: NextRequest) {
     });
 
     if (!plan) {
-      return NextResponse.json({ error: "Plano não encontrado" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Plano não encontrado" },
+        { status: 404 }
+      );
     }
 
-    const origin = req.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    const origin =
+      req.headers.get("origin") ||
+      process.env.NEXT_PUBLIC_APP_URL ||
+      "http://localhost:3000";
 
     const successUrl = resolveUrl(
       data.purchaseType === "ad"
