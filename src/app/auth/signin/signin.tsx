@@ -192,42 +192,68 @@ export default function SignInPage() {
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Tipo de Conta
                     </label>
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-2 gap-3 ">
+                      {/* PRESTADOR */}
                       <button
                         type="button"
                         onClick={() => setSelectedRole("PRESTADOR")}
                         className={`p-4 rounded-lg border-2 transition-all ${
                           selectedRole === "PRESTADOR"
-                            ? "border-primary-600 bg-primary-50"
+                            ? "border-primary-600 bg-cyan-600 text-white"
                             : "border-gray-300 hover:border-gray-400"
                         }`}
                       >
                         <div className="text-center">
                           <div className="text-2xl mb-2">👷</div>
-                          <div className="font-medium text-gray-900">
+                          <div
+                            className={`font-medium ${
+                              selectedRole === "PRESTADOR"
+                                ? "text-white"
+                                : "text-gray-900"
+                            }`}
+                          >
                             Prestador
                           </div>
-                          <div className="text-xs text-gray-600 mt-1">
+                          <div
+                            className={`text-xs mt-1 ${
+                              selectedRole === "PRESTADOR"
+                                ? "text-white/90"
+                                : "text-gray-600"
+                            }`}
+                          >
                             Ofereço serviços
                           </div>
                         </div>
                       </button>
 
+                      {/* EMPREGADOR */}
                       <button
                         type="button"
                         onClick={() => setSelectedRole("EMPREGADOR")}
                         className={`p-4 rounded-lg border-2 transition-all ${
                           selectedRole === "EMPREGADOR"
-                            ? "border-primary-600 bg-primary-50"
+                            ? "border-primary-600 bg-cyan-600 text-white"
                             : "border-gray-300 hover:border-gray-400"
                         }`}
                       >
                         <div className="text-center">
                           <div className="text-2xl mb-2">💼</div>
-                          <div className="font-medium text-gray-900">
+                          <div
+                            className={`font-medium ${
+                              selectedRole === "EMPREGADOR"
+                                ? "text-white"
+                                : "text-gray-900"
+                            }`}
+                          >
                             Empregador
                           </div>
-                          <div className="text-xs text-gray-600 mt-1">
+                          <div
+                            className={`text-xs mt-1 ${
+                              selectedRole === "EMPREGADOR"
+                                ? "text-white/90"
+                                : "text-gray-600"
+                            }`}
+                          >
                             Procuro profissionais
                           </div>
                         </div>

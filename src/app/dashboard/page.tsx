@@ -56,17 +56,17 @@ export default function DashboardPage() {
       const { user } = await api("/api/profile");
 
       const hasAddress = !!(
-        user.cep &&
-        user.street &&
-        user.number &&
-        user.neighborhood &&
-        user.city &&
-        user.state
+        user?.cep &&
+        user?.street &&
+        user?.number &&
+        user?.neighborhood &&
+        user?.city &&
+        user?.state
       );
 
       let isComplete = false;
 
-      if (user.role === "PRESTADOR" && user.workerProfile) {
+      if (user?.role === "PRESTADOR" && user.workerProfile) {
         const profile = user.workerProfile;
         isComplete = !!(
           hasAddress &&
@@ -74,7 +74,7 @@ export default function DashboardPage() {
           profile.averagePrice > 0 &&
           Object.keys(profile.availability || {}).length > 0
         );
-      } else if (user.role === "EMPREGADOR") {
+      } else if (user?.role === "EMPREGADOR") {
         const hasCnpj = Boolean(user.cnpj);
         isComplete = hasAddress && hasCnpj;
       }
@@ -200,8 +200,7 @@ export default function DashboardPage() {
       const message =
         error instanceof Error
           ? error.message
-          : (error as { message?: string })?.message ||
-            "Erro ao candidatar-se";
+          : (error as { message?: string })?.message || "Erro ao candidatar-se";
       alert(message);
     }
   };
@@ -258,7 +257,9 @@ export default function DashboardPage() {
           <div className="mb-6">
             <CompleteProfileAlert
               userName={session?.user?.name || undefined}
-              role={session?.user?.role as "PRESTADOR" | "EMPREGADOR" | undefined}
+              role={
+                session?.user?.role as "PRESTADOR" | "EMPREGADOR" | undefined
+              }
               onDismiss={
                 session?.user?.role === "EMPREGADOR"
                   ? handleDismissProfileReminder

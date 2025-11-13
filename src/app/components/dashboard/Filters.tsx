@@ -61,8 +61,8 @@ export function Filters({
             onClick={() => handleChange("type", "workers")}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
               localFilters.type === "workers"
-                ? "bg-primary-600 text-black"
-                : "bg-cyan-100 text-gray-700 hover:bg-gray-200"
+                ? "bg-cyan-600 text-white"
+                : "bg-white text-gray-700 hover:bg-gray-200"
             }`}
           >
             Prestadores
@@ -71,8 +71,8 @@ export function Filters({
             onClick={() => handleChange("type", "employers")}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
               localFilters.type === "employers"
-                ? "bg-primary-600 text-black"
-                : "bg-cyan-100 text-gray-700 hover:bg-gray-200"
+                ? "bg-cyan-600 text-white"
+                : "bg-white text-gray-700 hover:bg-gray-200"
             }`}
           >
             Empregadores

@@ -8,7 +8,17 @@ const CSRF_SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 const RATE_LIMIT_WINDOW_MS = 60_000;
 const RATE_LIMIT_MAX_REQUESTS = 120;
 
-const PUBLIC_PATHS = ["/auth", "/api/auth", "/api/payments/webhook"];
+const PUBLIC_PATHS = [
+  "/auth",
+  "/auth/signin",
+  "/auth/forgot-password",
+  "/auth/register",
+  "/api/auth",
+  "/api/auth/session",
+  "/api/auth/callback",
+  "/api/payments/webhook",
+  "/api/register",
+];
 
 // Arquivos públicos reais
 const PUBLIC_FILE =
@@ -117,7 +127,13 @@ function enforceCsrfProtection(request: NextRequest) {
 
   const pathname = request.nextUrl.pathname;
 
-  if (pathname.startsWith("/api/auth")) return null;
+  if (
+    pathname.startsWith("/api/auth") ||
+    pathname.startsWith("/auth") ||
+    pathname === "/api/register"
+  ) {
+    return null;
+  }
 
   const csrfCookie = request.cookies.get(CSRF_COOKIE_NAME)?.value;
   const csrfHeader = request.headers.get(CSRF_HEADER_NAME);
