@@ -3,6 +3,7 @@
 import { useState, useRef } from "react";
 import { Image as ImageIcon, Upload, X, Loader2 } from "lucide-react";
 import { Button } from "../Button";
+import { useApi } from "@/hooks/useApi";
 
 interface AdImageUploadProps {
   currentImage?: string;
@@ -17,6 +18,7 @@ export function AdImageUpload({
   const [isUploading, setIsUploading] = useState(false);
   const [uploadedPath, setUploadedPath] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { api } = useApi();
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -44,17 +46,10 @@ export function AdImageUpload({
       formData.append("file", file);
       formData.append("type", "ad");
 
-      const response = await fetch("/api/upload", {
+      const data = await api("/api/upload", {
         method: "POST",
         body: formData,
       });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Erro ao fazer upload");
-      }
-
-      const data = await response.json();
       setUploadedPath(data.path);
       onImageChange(data.url);
     } catch (error) {
@@ -73,7 +68,7 @@ export function AdImageUpload({
   const handleRemove = async () => {
     if (uploadedPath) {
       try {
-        await fetch(`/api/upload?path=${uploadedPath}&type=ad`, {
+        await api(`/api/upload?path=${uploadedPath}&type=ad`, {
           method: "DELETE",
         });
       } catch (error) {

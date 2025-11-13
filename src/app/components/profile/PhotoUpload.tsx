@@ -3,6 +3,7 @@
 import { useState, useRef } from "react";
 import { Camera, Upload, X, Loader2 } from "lucide-react";
 import { Button } from "../Button";
+import { useApi } from "@/hooks/useApi";
 
 interface ProfilePhotoUploadProps {
   currentPhoto?: string;
@@ -17,6 +18,7 @@ export function ProfilePhotoUpload({
   const [isUploading, setIsUploading] = useState(false);
   const [uploadedPath, setUploadedPath] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { api } = useApi();
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -48,17 +50,10 @@ export function ProfilePhotoUpload({
       formData.append("file", file);
       formData.append("type", "profile");
 
-      const response = await fetch("/api/upload", {
+      const data = await api("/api/upload", {
         method: "POST",
         body: formData,
       });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Erro ao fazer upload");
-      }
-
-      const data = await response.json();
       setUploadedPath(data.path);
       onPhotoChange(data.url);
     } catch (error) {
@@ -75,7 +70,7 @@ export function ProfilePhotoUpload({
   const handleRemove = async () => {
     if (uploadedPath) {
       try {
-        await fetch(`/api/upload?path=${uploadedPath}&type=profile`, {
+        await api(`/api/upload?path=${uploadedPath}&type=profile`, {
           method: "DELETE",
         });
       } catch (error) {

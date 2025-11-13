@@ -9,6 +9,7 @@ import { Mail, Lock, Chrome, Loader2 } from "lucide-react";
 import { Card, CardBody, CardHeader } from "@/app/components/Card";
 import { Input } from "@/app/components/Input";
 import { Button } from "@/app/components/Button";
+import { useApi } from "@/hooks/useApi";
 
 export default function SignInPage() {
   const router = useRouter();
@@ -16,6 +17,7 @@ export default function SignInPage() {
   const { data: session, status } = useSession();
   const isRegister = searchParams.get("register") === "true";
   const role = searchParams.get("role");
+  const { api } = useApi();
 
   const [isLoading, setIsLoading] = useState(false);
   const [email, setEmail] = useState("");
@@ -64,7 +66,7 @@ export default function SignInPage() {
 
     try {
       if (isRegister) {
-        const response = await fetch("/api/register", {
+        await api("/api/register", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -74,11 +76,6 @@ export default function SignInPage() {
             role: selectedRole,
           }),
         });
-
-        if (!response.ok) {
-          const data = await response.json();
-          throw new Error(data.error || "Erro ao criar conta");
-        }
 
         // Após registro, fazer login
         const result = await signIn("credentials", {

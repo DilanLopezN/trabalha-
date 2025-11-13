@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -16,6 +16,7 @@ import { Button } from "@/app/components/Button";
 import { Avatar } from "@/app/components/Avatar";
 import { ProfileModal } from "@/app/components/dashboard/ProfileModal";
 import { SearchResult, WorkerProfile } from "@/interfaces";
+import { useApi } from "@/hooks/useApi";
 
 interface Candidato {
   id: string;
@@ -48,6 +49,7 @@ export default function VagaCandidatosPage() {
   const params = useParams();
   const router = useRouter();
   const vagaId = params.id as string;
+  const { api } = useApi();
 
   const [candidatos, setCandidatos] = useState<Candidato[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -56,23 +58,20 @@ export default function VagaCandidatosPage() {
   );
   const [showProfileModal, setShowProfileModal] = useState(false);
 
-  useEffect(() => {
-    loadCandidatos();
-  }, [vagaId]);
-
-  const loadCandidatos = async () => {
+  const loadCandidatos = useCallback(async () => {
     try {
-      const response = await fetch(`/api/vagas/candidatar?vagaId=${vagaId}`);
-      if (response.ok) {
-        const data = await response.json();
-        setCandidatos(data.candidaturas || []);
-      }
+      const data = await api(`/api/vagas/candidatar?vagaId=${vagaId}`);
+      setCandidatos(data.candidaturas || []);
     } catch (error) {
       console.error("Erro ao carregar candidatos:", error);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [api, vagaId]);
+
+  useEffect(() => {
+    loadCandidatos();
+  }, [vagaId, loadCandidatos]);
 
   const handleWhatsApp = (whatsapp: string | null, nome: string) => {
     if (!whatsapp) return;

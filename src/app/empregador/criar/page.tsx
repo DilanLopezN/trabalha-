@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -13,6 +13,7 @@ import { Textarea } from "../../components/Textarea";
 import { Button } from "../../components/Button";
 import { Select } from "../../components/Select";
 import { Card, CardBody, CardHeader } from "../../components/Card";
+import { useApi } from "@/hooks/useApi";
 
 const vagaSchema = z.object({
   titulo: z.string().min(5, "Título deve ter no mínimo 5 caracteres"),
@@ -36,6 +37,7 @@ export default function CriarVagaPage() {
   >([]);
   const [etapas, setEtapas] = useState<Etapa[]>([]);
   const [novaEtapa, setNovaEtapa] = useState("");
+  const { api } = useApi();
 
   const {
     register,
@@ -48,27 +50,24 @@ export default function CriarVagaPage() {
 
   const salarioTipo = watch("salarioTipo");
 
-  useEffect(() => {
-    loadCategories();
-  }, []);
-
-  const loadCategories = async () => {
+  const loadCategories = useCallback(async () => {
     try {
-      const response = await fetch("/api/categories");
-      if (response.ok) {
-        const { categories: cats } = await response.json();
-        setCategories([
-          { value: "", label: "Selecione uma categoria" },
-          ...cats.map((cat: any) => ({
-            value: cat.id,
-            label: cat.name,
-          })),
-        ]);
-      }
+      const { categories: cats } = await api("/api/categories");
+      setCategories([
+        { value: "", label: "Selecione uma categoria" },
+        ...cats.map((cat: any) => ({
+          value: cat.id,
+          label: cat.name,
+        })),
+      ]);
     } catch (error) {
       console.error("Erro ao carregar categorias:", error);
     }
-  };
+  }, [api]);
+
+  useEffect(() => {
+    loadCategories();
+  }, [loadCategories]);
 
   const adicionarEtapa = () => {
     if (novaEtapa.trim()) {
@@ -83,7 +82,7 @@ export default function CriarVagaPage() {
 
   const onSubmit = async (data: VagaFormData) => {
     try {
-      const response = await fetch("/api/vagas", {
+      await api("/api/vagas", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -99,16 +98,15 @@ export default function CriarVagaPage() {
         }),
       });
 
-      if (response.ok) {
-        alert("Vaga criada com sucesso!");
-        router.push("/empregador");
-      } else {
-        const error = await response.json();
-        alert(`Erro: ${error.error}`);
-      }
+      alert("Vaga criada com sucesso!");
+      router.push("/empregador");
     } catch (error) {
       console.error("Erro ao criar vaga:", error);
-      alert("Erro ao criar vaga");
+      const message =
+        error instanceof Error
+          ? error.message
+          : (error as { message?: string })?.message || "Erro ao criar vaga";
+      alert(message);
     }
   };
 

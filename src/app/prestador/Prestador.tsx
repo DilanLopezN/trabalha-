@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -18,6 +18,7 @@ import {
 
 import { Card, CardBody, CardHeader } from "../components/Card";
 import { Button } from "../components/Button";
+import { useApi } from "@/hooks/useApi";
 
 interface Highlight {
   id: string;
@@ -32,12 +33,24 @@ export default function PrestadorPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { data: session, status } = useSession();
+  const { api } = useApi();
   const [highlights, setHighlights] = useState<Highlight[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [statusMessage, setStatusMessage] = useState<{
     type: "success" | "error";
     text: string;
   } | null>(null);
+
+  const loadHighlights = useCallback(async () => {
+    try {
+      const data = await api("/api/highlights");
+      setHighlights(data.highlights || []);
+    } catch (error) {
+      console.error("Erro ao carregar destaques:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [api]);
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -49,7 +62,7 @@ export default function PrestadorPage() {
         loadHighlights();
       }
     }
-  }, [status, session, router]);
+  }, [status, session, router, loadHighlights]);
 
   useEffect(() => {
     const checkoutStatus = searchParams.get("checkout");
@@ -65,20 +78,6 @@ export default function PrestadorPage() {
       });
     }
   }, [searchParams]);
-
-  const loadHighlights = async () => {
-    try {
-      const response = await fetch("/api/highlights");
-      if (response.ok) {
-        const data = await response.json();
-        setHighlights(data.highlights || []);
-      }
-    } catch (error) {
-      console.error("Erro ao carregar destaques:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const handleBuyHighlight = () => {
     router.push("/prestador/comprar-destaque");
