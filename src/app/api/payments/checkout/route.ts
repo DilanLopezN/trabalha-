@@ -130,6 +130,12 @@ export async function POST(req: NextRequest) {
       customer_email: user.email,
       success_url: appendSessionIdPlaceholder(successUrl),
       cancel_url: cancelUrl,
+      payment_method_types: ["card", "boleto"],
+      payment_method_options: {
+        boleto: {
+          expires_after_days: 3,
+        },
+      },
       line_items: [
         {
           price_data: {

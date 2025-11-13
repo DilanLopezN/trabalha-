@@ -5,6 +5,7 @@ import { Prisma } from "@prisma/client";
 
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { prisma } from "@/lib/prisma";
+import { normalizeCityName } from "@/lib/strings";
 
 const profileSchema = z.object({
   name: z.string().min(3),
@@ -125,6 +126,19 @@ export async function PUT(req: NextRequest) {
       }
     }
 
+    const normalizedCity =
+      body.address?.city === undefined
+        ? undefined
+        : body.address.city
+        ? normalizeCityName(body.address.city)
+        : null;
+    const normalizedState =
+      body.address?.state === undefined
+        ? undefined
+        : body.address.state
+        ? body.address.state.toUpperCase()
+        : null;
+
     // Atualizar dados básicos do usuário (incluindo endereço)
     await prisma.user.update({
       where: { id: user.id },
@@ -139,8 +153,8 @@ export async function PUT(req: NextRequest) {
         number: body.address?.number || user.number,
         complement: body.address?.complement || user.complement,
         neighborhood: body.address?.neighborhood || user.neighborhood,
-        city: body.address?.city || user.city,
-        state: body.address?.state || user.state,
+        city: normalizedCity !== undefined ? normalizedCity : user.city,
+        state: normalizedState !== undefined ? normalizedState : user.state,
       },
     });
 
