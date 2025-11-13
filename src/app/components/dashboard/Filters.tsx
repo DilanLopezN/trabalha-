@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { SearchFilters, Category } from "@/interfaces";
 import { Input } from "../Input";
 import { Button } from "../Button";
@@ -27,6 +27,10 @@ export function Filters({
   categories,
 }: FiltersProps) {
   const [localFilters, setLocalFilters] = useState<SearchFilters>(filters);
+
+  useEffect(() => {
+    setLocalFilters(filters);
+  }, [filters]);
 
   const handleChange = (key: keyof SearchFilters, value: any) => {
     const newFilters = { ...localFilters, [key]: value };
@@ -97,6 +101,27 @@ export function Filters({
           placeholder="Nome, serviço..."
           value={localFilters.q || ""}
           onChange={(e) => handleChange("q", e.target.value)}
+          fullWidth
+        />
+      </div>
+
+      {/* Localização */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <Input
+          label="Estado"
+          placeholder="Ex: SP"
+          value={localFilters.state || ""}
+          onChange={(e) =>
+            handleChange("state", e.target.value.toUpperCase().slice(0, 2))
+          }
+          fullWidth
+          maxLength={2}
+        />
+        <Input
+          label="Cidade"
+          placeholder="Ex: São Paulo"
+          value={localFilters.city || ""}
+          onChange={(e) => handleChange("city", e.target.value)}
           fullWidth
         />
       </div>

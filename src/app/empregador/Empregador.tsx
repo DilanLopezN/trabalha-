@@ -6,17 +6,15 @@ import { useSession } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Plus,
-  Edit,
-  Trash2,
   Briefcase,
   DollarSign,
-  MapPin,
   Calendar,
   Loader2,
   Eye,
+  Sparkles,
 } from "lucide-react";
 
-import { Card, CardBody, CardHeader } from "../components/Card";
+import { Card, CardBody } from "../components/Card";
 import { Button } from "../components/Button";
 import { Header } from "../components/dashboard/Header";
 
@@ -31,6 +29,8 @@ interface Vaga {
   };
   status: "ABERTA" | "PAUSADA" | "FECHADA";
   createdAt: string;
+  isPaidAd?: boolean;
+  paidAdExpiresAt?: string | null;
   _count: {
     candidaturas: number;
   };
@@ -46,6 +46,7 @@ export default function EmpregadorPage() {
     type: "success" | "error";
     text: string;
   } | null>(null);
+  const [highlighting, setHighlighting] = useState<string | null>(null);
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -85,6 +86,39 @@ export default function EmpregadorPage() {
       console.error("Erro ao carregar vagas:", error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleHighlightVaga = async (vagaId: string) => {
+    setHighlighting(vagaId);
+    try {
+      const response = await fetch("/api/vagas/paid", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ vagaId, durationDays: 30 }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || "Não foi possível destacar a vaga");
+      }
+
+      setStatusMessage({
+        type: "success",
+        text: "Sua vaga foi destacada e aparecerá no painel por 30 dias.",
+      });
+      loadVagas();
+    } catch (error) {
+      console.error("Erro ao destacar vaga:", error);
+      setStatusMessage({
+        type: "error",
+        text:
+          error instanceof Error
+            ? error.message
+            : "Erro ao destacar a vaga. Tente novamente mais tarde.",
+      });
+    } finally {
+      setHighlighting(null);
     }
   };
 
@@ -213,9 +247,15 @@ export default function EmpregadorPage() {
             </Card>
           ) : (
             <div className="grid md:grid-cols-2 gap-6">
-              {vagas.map((vaga) => (
-                <Card key={vaga.id} className="hover:shadow-lg transition-all">
-                  <CardBody className="space-y-4">
+              {vagas.map((vaga) => {
+                const highlightActive =
+                  vaga.isPaidAd &&
+                  (!vaga.paidAdExpiresAt ||
+                    new Date(vaga.paidAdExpiresAt) > new Date());
+
+                return (
+                  <Card key={vaga.id} className="hover:shadow-lg transition-all">
+                    <CardBody className="space-y-4">
                     <div className="flex items-start justify-between">
                       <h3 className="text-lg font-semibold text-gray-900">
                         {vaga.titulo}
@@ -232,6 +272,19 @@ export default function EmpregadorPage() {
                         {vaga.status}
                       </span>
                     </div>
+
+                    {highlightActive && (
+                      <div className="flex items-center gap-2 text-xs font-semibold text-emerald-600">
+                        <span className="inline-flex items-center gap-1 bg-emerald-50 px-2 py-1 rounded-full">
+                          <Sparkles className="w-3 h-3" /> Destaque ativo
+                        </span>
+                        {vaga.paidAdExpiresAt && (
+                          <span className="text-emerald-500">
+                            até {new Date(vaga.paidAdExpiresAt).toLocaleDateString("pt-BR")}
+                          </span>
+                        )}
+                      </div>
+                    )}
 
                     <p className="text-sm text-gray-600 line-clamp-2">
                       {vaga.descricao}
@@ -260,23 +313,43 @@ export default function EmpregadorPage() {
                       </div>
                     </div>
 
-                    <div className="pt-4 border-t border-gray-200 flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        fullWidth
-                        className="gap-2"
-                        onClick={() =>
-                          router.push(`/empregador/vaga/${vaga.id}`)
-                        }
-                      >
-                        <Eye className="w-4 h-4" />
-                        Ver Candidatos ({vaga._count.candidaturas})
-                      </Button>
+                    <div className="pt-4 border-t border-gray-200 flex flex-col gap-2">
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          fullWidth
+                          className="gap-2"
+                          onClick={() =>
+                            router.push(`/empregador/vaga/${vaga.id}`)
+                          }
+                        >
+                          <Eye className="w-4 h-4" />
+                          Ver Candidatos ({vaga._count.candidaturas})
+                        </Button>
+                        <Button
+                          size="sm"
+                          fullWidth
+                          className="gap-2"
+                          onClick={() => handleHighlightVaga(vaga.id)}
+                          disabled={highlighting === vaga.id || highlightActive}
+                        >
+                          <Sparkles className="w-4 h-4" />
+                          {highlightActive
+                            ? "Destaque ativo"
+                            : "Destacar (R$ 10,00)"}
+                        </Button>
+                      </div>
+                      {highlighting === vaga.id && (
+                        <p className="text-xs text-primary-600 text-center">
+                          Processando destaque da vaga...
+                        </p>
+                      )}
                     </div>
-                  </CardBody>
-                </Card>
-              ))}
+                    </CardBody>
+                  </Card>
+                );
+              })}
             </div>
           )}
         </div>

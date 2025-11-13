@@ -4,6 +4,27 @@ import { MessageCircle, MapPin, Clock, DollarSign } from "lucide-react";
 import { Button } from "../Button";
 import { Card, CardBody } from "../Card";
 import { EmployerProfile, SearchResult, WorkerProfile } from "@/interfaces";
+import { Avatar } from "../Avatar";
+
+function LoadingSkeletonCard() {
+  return (
+    <div className="border border-gray-200 rounded-xl p-4 bg-white animate-pulse space-y-4">
+      <div className="flex items-start gap-4">
+        <div className="w-16 h-16 rounded-full bg-gray-200" />
+        <div className="flex-1 space-y-2">
+          <div className="h-4 bg-gray-200 rounded w-1/2" />
+          <div className="h-3 bg-gray-200 rounded w-1/3" />
+        </div>
+      </div>
+      <div className="h-3 bg-gray-200 rounded w-full" />
+      <div className="flex gap-3">
+        <div className="h-3 bg-gray-200 rounded w-1/4" />
+        <div className="h-3 bg-gray-200 rounded w-1/4" />
+      </div>
+      <div className="h-9 bg-gray-200 rounded" />
+    </div>
+  );
+}
 
 interface ResultsProps {
   results: SearchResult[];
@@ -51,21 +72,7 @@ function WorkerCard({
       <CardBody className="space-y-4">
         <div className="flex items-start gap-4">
           {/* Foto de perfil */}
-          <div className="w-16 h-16 rounded-full overflow-hidden bg-primary-100 flex-shrink-0">
-            {result.image ? (
-              <img
-                src={result.image}
-                alt={result.name}
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center">
-                <span className="text-2xl font-bold text-primary-600">
-                  {result.name.charAt(0).toUpperCase()}
-                </span>
-              </div>
-            )}
-          </div>
+          <Avatar src={result.image} alt={result.name} size={64} />
 
           <div className="flex-1 min-w-0">
             <h3 className="text-lg font-semibold text-gray-900 truncate">
@@ -74,6 +81,14 @@ function WorkerCard({
             <p className="text-sm text-primary-600 font-medium">
               {profile.category?.name}
             </p>
+            {(result.city || result.state) && (
+              <p className="flex items-center gap-1 text-xs text-gray-500 mt-1">
+                <MapPin className="w-3 h-3" />
+                <span>
+                  {[result.city, result.state].filter(Boolean).join(" - ")}
+                </span>
+              </p>
+            )}
           </div>
         </div>
 
@@ -134,27 +149,21 @@ function EmployerCard({
       <CardBody className="space-y-4">
         <div className="flex items-start gap-4">
           {/* Foto de perfil */}
-          <div className="w-16 h-16 rounded-full overflow-hidden bg-primary-100 flex-shrink-0">
-            {result.image ? (
-              <img
-                src={result.image}
-                alt={result.name}
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center">
-                <span className="text-2xl font-bold text-primary-600">
-                  {result.name.charAt(0).toUpperCase()}
-                </span>
-              </div>
-            )}
-          </div>
+          <Avatar src={result.image} alt={result.name} size={64} />
 
           <div className="flex-1 min-w-0">
             <h3 className="text-lg font-semibold text-gray-900 truncate">
               {result.name}
             </h3>
             <p className="text-sm text-primary-600 font-medium">Empregador</p>
+            {(result.city || result.state) && (
+              <p className="flex items-center gap-1 text-xs text-gray-500 mt-1">
+                <MapPin className="w-3 h-3" />
+                <span>
+                  {[result.city, result.state].filter(Boolean).join(" - ")}
+                </span>
+              </p>
+            )}
           </div>
         </div>
 
@@ -202,11 +211,10 @@ function EmployerCard({
 export function Results({ results, isLoading, onOpenProfile }: ResultsProps) {
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <div className="text-center">
-          <div className="w-12 h-12 border-4 border-primary-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-gray-600">Buscando resultados...</p>
-        </div>
+      <div className="space-y-4">
+        {[0, 1, 2].map((key) => (
+          <LoadingSkeletonCard key={key} />
+        ))}
       </div>
     );
   }

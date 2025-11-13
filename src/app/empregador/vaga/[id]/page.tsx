@@ -6,15 +6,16 @@ import Link from "next/link";
 import {
   ArrowLeft,
   User,
-  Phone,
   MessageCircle,
   Briefcase,
   Calendar,
   FileText,
-  Loader2,
 } from "lucide-react";
-import { Card, CardBody, CardHeader } from "@/app/components/Card";
+import { Card, CardBody } from "@/app/components/Card";
 import { Button } from "@/app/components/Button";
+import { Avatar } from "@/app/components/Avatar";
+import { ProfileModal } from "@/app/components/dashboard/ProfileModal";
+import { SearchResult, WorkerProfile } from "@/interfaces";
 
 interface Candidato {
   id: string;
@@ -23,12 +24,19 @@ interface Candidato {
     name: string;
     image: string | null;
     whatsapp: string | null;
+    city?: string | null;
+    state?: string | null;
     workerProfile: {
+      id: string;
+      userId: string;
+      categoryId: string;
       category: {
         name: string;
       };
       description: string;
       averagePrice: number;
+      availability?: Record<string, any>;
+      resumeUrl?: string | null;
     } | null;
   };
   mensagem: string | null;
@@ -43,6 +51,10 @@ export default function VagaCandidatosPage() {
 
   const [candidatos, setCandidatos] = useState<Candidato[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [selectedProfile, setSelectedProfile] = useState<SearchResult | null>(
+    null
+  );
+  const [showProfileModal, setShowProfileModal] = useState(false);
 
   useEffect(() => {
     loadCandidatos();
@@ -72,16 +84,42 @@ export default function VagaCandidatosPage() {
     );
   };
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="w-12 h-12 text-primary-600 animate-spin mx-auto mb-4" />
-          <p className="text-gray-600">Carregando candidatos...</p>
-        </div>
-      </div>
-    );
-  }
+  const handleOpenProfile = (candidato: Candidato) => {
+    if (!candidato.prestador.workerProfile) return;
+
+    const profile = candidato.prestador.workerProfile;
+    const mappedProfile: WorkerProfile = {
+      id: profile?.id || "",
+      userId: profile?.userId || candidato.prestador.id,
+      categoryId: profile?.categoryId || "",
+      category: profile?.category || undefined,
+      averagePrice: Number(profile?.averagePrice || 0),
+      availability: profile?.availability || {},
+      description: profile?.description || "",
+      resumeUrl: profile?.resumeUrl || null,
+    };
+
+    const mapped: SearchResult = {
+      id: candidato.prestador.id,
+      name: candidato.prestador.name,
+      role: "PRESTADOR",
+      image: candidato.prestador.image || undefined,
+      whatsapp: candidato.prestador.whatsapp || undefined,
+      city: candidato.prestador.city || null,
+      state: candidato.prestador.state || null,
+      profile: mappedProfile,
+      highlightPlan: null,
+      relevanceScore: 0,
+    };
+
+    setSelectedProfile(mapped);
+    setShowProfileModal(true);
+  };
+
+  const handleCloseProfile = () => {
+    setShowProfileModal(false);
+    setTimeout(() => setSelectedProfile(null), 200);
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -109,7 +147,30 @@ export default function VagaCandidatosPage() {
           </p>
         </div>
 
-        {candidatos.length === 0 ? (
+        {isLoading ? (
+          <div className="space-y-4">
+            {[0, 1, 2].map((index) => (
+              <div
+                key={index}
+                className="border border-gray-200 rounded-xl p-6 bg-white animate-pulse space-y-4"
+              >
+                <div className="flex items-start gap-4">
+                  <div className="w-20 h-20 rounded-full bg-gray-200" />
+                  <div className="flex-1 space-y-2">
+                    <div className="h-4 bg-gray-200 rounded w-1/2" />
+                    <div className="h-3 bg-gray-200 rounded w-1/3" />
+                    <div className="h-3 bg-gray-200 rounded w-2/3" />
+                  </div>
+                </div>
+                <div className="h-3 bg-gray-200 rounded w-full" />
+                <div className="flex gap-3">
+                  <div className="h-8 bg-gray-200 rounded flex-1" />
+                  <div className="h-8 bg-gray-200 rounded flex-1" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : candidatos.length === 0 ? (
           <Card>
             <CardBody className="text-center py-12">
               <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -132,26 +193,14 @@ export default function VagaCandidatosPage() {
               >
                 <CardBody>
                   <div className="flex flex-col md:flex-row gap-6">
-                    {/* Foto */}
                     <div className="flex-shrink-0">
-                      <div className="w-24 h-24 rounded-full overflow-hidden bg-primary-100">
-                        {candidato.prestador.image ? (
-                          <img
-                            src={candidato.prestador.image}
-                            alt={candidato.prestador.name}
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center">
-                            <span className="text-3xl font-bold text-primary-600">
-                              {candidato.prestador.name.charAt(0).toUpperCase()}
-                            </span>
-                          </div>
-                        )}
-                      </div>
+                      <Avatar
+                        src={candidato.prestador.image}
+                        alt={candidato.prestador.name}
+                        size={96}
+                      />
                     </div>
 
-                    {/* Informações */}
                     <div className="flex-1 space-y-4">
                       <div>
                         <h3 className="text-xl font-bold text-gray-900 mb-1">
@@ -213,7 +262,7 @@ export default function VagaCandidatosPage() {
                         </span>
                       </div>
 
-                      <div className="flex gap-3 pt-2">
+                      <div className="flex gap-3 pt-2 flex-wrap">
                         <Button
                           onClick={() =>
                             handleWhatsApp(
@@ -230,9 +279,7 @@ export default function VagaCandidatosPage() {
 
                         <Button
                           variant="outline"
-                          onClick={() =>
-                            router.push(`/profile/${candidato.prestador.id}`)
-                          }
+                          onClick={() => handleOpenProfile(candidato)}
                         >
                           Ver Perfil Completo
                         </Button>
@@ -245,6 +292,12 @@ export default function VagaCandidatosPage() {
           </div>
         )}
       </div>
+
+      <ProfileModal
+        result={selectedProfile}
+        isOpen={showProfileModal}
+        onClose={handleCloseProfile}
+      />
     </div>
   );
 }
