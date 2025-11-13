@@ -123,15 +123,19 @@ async function handleJobHighlightPurchase(metadata: Stripe.Metadata) {
   const durationRaw = metadata.durationDays as string;
 
   if (!userId || !vagaId) {
-    console.warn("Checkout de destaque de vaga sem userId ou vagaId informado", {
-      userId,
-      vagaId,
-    });
+    console.warn(
+      "Checkout de destaque de vaga sem userId ou vagaId informado",
+      {
+        userId,
+        vagaId,
+      }
+    );
     return;
   }
 
   const durationDays = Number.parseInt(durationRaw || "30", 10);
-  const safeDuration = Number.isFinite(durationDays) && durationDays > 0 ? durationDays : 30;
+  const safeDuration =
+    Number.isFinite(durationDays) && durationDays > 0 ? durationDays : 30;
 
   const vaga = await prisma.vaga.findUnique({ where: { id: vagaId } });
 
@@ -155,13 +159,15 @@ async function handleJobHighlightPurchase(metadata: Stripe.Metadata) {
   await prisma.vaga.update({
     where: { id: vagaId },
     data: {
-      // @ts-expect-error - campo adicionado na atualização do schema
       isPaidAd: true,
-      // @ts-expect-error - campo adicionado na atualização do schema
       paidAdExpiresAt: expiresAt,
       updatedAt: now,
     },
   });
+}
+
+export async function GET() {
+  return NextResponse.json({ status: "ok" });
 }
 
 export async function POST(req: Request) {
