@@ -37,9 +37,8 @@ export function useApi() {
 
         const data = isJson ? await res.json() : await res.text();
 
-        if (!res.ok) {
+        if (!res) {
           throw {
-            status: res.status,
             message: (data as any)?.error || data || "Request error",
           };
         }
