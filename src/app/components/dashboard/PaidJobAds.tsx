@@ -1,8 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { MapPin, Briefcase, Sparkles } from "lucide-react";
 import { Avatar } from "../Avatar";
+import { Button } from "../Button";
 
 interface PaidJobAdProps {
   ads: Array<{
@@ -19,8 +21,11 @@ interface PaidJobAdProps {
       city: string | null;
       state: string | null;
     };
+    alreadyApplied?: boolean;
   }>;
   isLoading?: boolean;
+  currentUserRole?: string;
+  onCandidatar?: (vagaId: string) => Promise<void> | void;
 }
 
 function PaidAdSkeleton() {
@@ -39,7 +44,101 @@ function PaidAdSkeleton() {
   );
 }
 
-export function PaidJobAds({ ads, isLoading = false }: PaidJobAdProps) {
+function PaidAdCard({
+  ad,
+  onCandidatar,
+  currentUserRole,
+}: {
+  ad: PaidJobAdProps["ads"][number];
+  onCandidatar?: (vagaId: string) => Promise<void> | void;
+  currentUserRole?: string;
+}) {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [hasApplied, setHasApplied] = useState(Boolean(ad.alreadyApplied));
+
+  const handleApply = async () => {
+    if (!onCandidatar || hasApplied || isSubmitting) {
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      await onCandidatar(ad.id);
+      setHasApplied(true);
+    } catch (error) {
+      console.error("Erro ao candidatar-se em anúncio destacado:", error);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="border border-primary-200 bg-white rounded-xl p-4 shadow-sm hover:shadow-lg transition-shadow">
+      <div className="flex items-start gap-3">
+        <Avatar
+          src={ad.empregador.image}
+          alt={ad.empregador.name || "Empregador"}
+          size={48}
+        />
+        <div className="flex-1 min-w-0">
+          <h3 className="text-base font-semibold text-gray-900 line-clamp-2">
+            {ad.titulo}
+          </h3>
+          <p className="text-sm text-primary-600">
+            {ad.empregador.name || "Empregador"}
+          </p>
+          {(ad.empregador.city || ad.empregador.state) && (
+            <p className="flex items-center gap-1 text-xs text-gray-500 mt-1">
+              <MapPin className="w-3 h-3" />
+              <span>
+                {[ad.empregador.city, ad.empregador.state]
+                  .filter(Boolean)
+                  .join(" - ")}
+              </span>
+            </p>
+          )}
+        </div>
+      </div>
+
+      {ad.category && (
+        <div className="mt-3 flex items-center gap-2 text-xs text-gray-600">
+          <Briefcase className="w-3 h-3" />
+          <span>{ad.category.name}</span>
+        </div>
+      )}
+
+      <div className="mt-4 flex flex-col sm:flex-row gap-3">
+        {currentUserRole === "PRESTADOR" && (
+          <Button
+            onClick={handleApply}
+            disabled={!onCandidatar || hasApplied || isSubmitting}
+            className="flex-1"
+          >
+            {hasApplied
+              ? "Já candidatado"
+              : isSubmitting
+                ? "Enviando..."
+                : "Candidatar-se"}
+          </Button>
+        )}
+
+        <Link
+          href={`/dashboard?vaga=${ad.id}`}
+          className="flex-1 inline-flex items-center justify-center px-4 py-2 text-sm font-semibold text-white bg-primary-600 rounded-lg hover:bg-primary-700 transition-colors"
+        >
+          Ver detalhes da vaga
+        </Link>
+      </div>
+    </div>
+  );
+}
+
+export function PaidJobAds({
+  ads,
+  isLoading = false,
+  currentUserRole,
+  onCandidatar,
+}: PaidJobAdProps) {
   if (isLoading) {
     return (
       <div className="space-y-4">
@@ -75,50 +174,12 @@ export function PaidJobAds({ ads, isLoading = false }: PaidJobAdProps) {
       ) : (
         <div className="space-y-4">
           {ads.map((ad) => (
-            <div
+            <PaidAdCard
               key={ad.id}
-              className="border border-primary-200 bg-white rounded-xl p-4 shadow-sm hover:shadow-lg transition-shadow"
-            >
-              <div className="flex items-start gap-3">
-                <Avatar
-                  src={ad.empregador.image}
-                  alt={ad.empregador.name || "Empregador"}
-                  size={48}
-                />
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-base font-semibold text-gray-900 line-clamp-2">
-                    {ad.titulo}
-                  </h3>
-                  <p className="text-sm text-primary-600">
-                    {ad.empregador.name || "Empregador"}
-                  </p>
-                  {(ad.empregador.city || ad.empregador.state) && (
-                    <p className="flex items-center gap-1 text-xs text-gray-500 mt-1">
-                      <MapPin className="w-3 h-3" />
-                      <span>
-                        {[ad.empregador.city, ad.empregador.state]
-                          .filter(Boolean)
-                          .join(" - ")}
-                      </span>
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              {ad.category && (
-                <div className="mt-3 flex items-center gap-2 text-xs text-gray-600">
-                  <Briefcase className="w-3 h-3" />
-                  <span>{ad.category.name}</span>
-                </div>
-              )}
-
-              <Link
-                href={`/dashboard?vaga=${ad.id}`}
-                className="mt-4 inline-flex items-center justify-center w-full px-4 py-2 text-sm font-semibold text-white bg-primary-600 rounded-lg hover:bg-primary-700 transition-colors"
-              >
-                Ver detalhes da vaga
-              </Link>
-            </div>
+              ad={ad}
+              currentUserRole={currentUserRole}
+              onCandidatar={onCandidatar}
+            />
           ))}
         </div>
       )}
