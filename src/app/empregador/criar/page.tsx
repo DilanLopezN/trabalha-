@@ -43,12 +43,19 @@ export default function CriarVagaPage() {
     register,
     handleSubmit,
     watch,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<VagaFormData>({
     resolver: zodResolver(vagaSchema),
   });
 
   const salarioTipo = watch("salarioTipo");
+
+  useEffect(() => {
+    if (salarioTipo === "A_COMBINAR") {
+      setValue("salarioValor", "");
+    }
+  }, [salarioTipo, setValue]);
 
   const loadCategories = useCallback(async () => {
     try {
@@ -93,7 +100,7 @@ export default function CriarVagaPage() {
           salarioValor:
             data.salarioTipo === "FIXO" && data.salarioValor
               ? parseFloat(data.salarioValor)
-              : null,
+              : undefined,
           etapas: etapas.length > 0 ? etapas : undefined,
         }),
       });

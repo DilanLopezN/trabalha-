@@ -23,6 +23,7 @@ export default function DashboardPage() {
   const { data: session } = useSession();
   const { api } = useApi();
   const [profileComplete, setProfileComplete] = useState(true);
+  const [showProfileReminder, setShowProfileReminder] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
   const [filters, setFilters] = useState<SearchFilters>({
     type: "workers",
@@ -193,6 +194,7 @@ export default function DashboardPage() {
 
       alert("Candidatura enviada com sucesso!");
       loadVagas();
+      loadPaidAds();
     } catch (error) {
       console.error("Erro ao candidatar:", error);
       const message =
@@ -204,6 +206,46 @@ export default function DashboardPage() {
     }
   };
 
+  useEffect(() => {
+    if (!session?.user?.role) {
+      setShowProfileReminder(false);
+      return;
+    }
+
+    if (profileComplete) {
+      setShowProfileReminder(false);
+      return;
+    }
+
+    if (session.user.role === "EMPREGADOR") {
+      if (typeof window === "undefined" || !session.user.id) {
+        return;
+      }
+
+      const storageKey = `emp-profile-reminder-${session.user.id}`;
+      const hasSeen = window.localStorage.getItem(storageKey);
+
+      if (!hasSeen) {
+        window.localStorage.setItem(storageKey, "seen");
+        setShowProfileReminder(true);
+      } else {
+        setShowProfileReminder(false);
+      }
+    } else {
+      setShowProfileReminder(true);
+    }
+  }, [profileComplete, session?.user?.role, session?.user?.id]);
+
+  const handleDismissProfileReminder = useCallback(() => {
+    if (session?.user?.role === "EMPREGADOR" && session.user.id) {
+      const storageKey = `emp-profile-reminder-${session.user.id}`;
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(storageKey, "dismissed");
+      }
+    }
+    setShowProfileReminder(false);
+  }, [session?.user?.id, session?.user?.role]);
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -212,9 +254,17 @@ export default function DashboardPage() {
       {/* Main Content */}
       <div className="container mx-auto px-4 py-6">
         {/* Alerta de perfil incompleto */}
-        {!profileComplete && (
+        {!profileComplete && showProfileReminder && (
           <div className="mb-6">
-            <CompleteProfileAlert userName={session?.user?.name || undefined} />
+            <CompleteProfileAlert
+              userName={session?.user?.name || undefined}
+              role={session?.user?.role as "PRESTADOR" | "EMPREGADOR" | undefined}
+              onDismiss={
+                session?.user?.role === "EMPREGADOR"
+                  ? handleDismissProfileReminder
+                  : undefined
+              }
+            />
           </div>
         )}
 
@@ -255,7 +305,12 @@ export default function DashboardPage() {
           {/* Paid Ads */}
           <aside className="lg:col-span-3">
             <div className="sticky top-24">
-              <PaidJobAds ads={paidAds} isLoading={isLoadingPaidAds} />
+              <PaidJobAds
+                ads={paidAds}
+                isLoading={isLoadingPaidAds}
+                currentUserRole={session?.user?.role}
+                onCandidatar={handleCandidatar}
+              />
             </div>
           </aside>
         </div>

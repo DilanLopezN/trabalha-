@@ -25,48 +25,39 @@ async function handleHighlightPurchase(
 
   const now = new Date();
 
-  await prisma.highlight.updateMany({
-    where: {
-      userId,
-      status: "ACTIVE",
-      endsAt: { lte: now },
-    },
-    data: { status: "EXPIRED" },
-  });
-
-  const activeHighlight = await prisma.highlight.findFirst({
-    where: {
-      userId,
-      status: "ACTIVE",
-      endsAt: { gt: now },
-    },
-    orderBy: { endsAt: "desc" },
-  });
-
-  if (activeHighlight) {
-    const baseDate =
-      activeHighlight.endsAt > now ? activeHighlight.endsAt : now;
-    const newEndsAt = addDays(baseDate, plan.durationDays);
-    await prisma.highlight.update({
-      where: { id: activeHighlight.id },
-      data: {
-        planId: plan.id,
-        endsAt: newEndsAt,
+  await prisma.$transaction(async (tx) => {
+    await tx.highlight.updateMany({
+      where: {
+        userId,
         status: "ACTIVE",
-        updatedAt: new Date(),
+        endsAt: { lte: now },
+      },
+      data: {
+        status: "EXPIRED",
       },
     });
-    return;
-  }
 
-  await prisma.highlight.create({
-    data: {
-      userId,
-      planId: plan.id,
-      startsAt: now,
-      endsAt: addDays(now, plan.durationDays),
-      status: "ACTIVE",
-    },
+    await tx.highlight.updateMany({
+      where: {
+        userId,
+        status: "ACTIVE",
+        endsAt: { gt: now },
+      },
+      data: {
+        status: "EXPIRED",
+        endsAt: now,
+      },
+    });
+
+    await tx.highlight.create({
+      data: {
+        userId,
+        planId: plan.id,
+        startsAt: now,
+        endsAt: addDays(now, plan.durationDays),
+        status: "ACTIVE",
+      },
+    });
   });
 }
 

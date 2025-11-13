@@ -48,8 +48,44 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
     }
 
+    const user = await prisma.user.findUnique({
+      where: { email: session.user.email },
+      select: { id: true, role: true },
+    });
+
+    if (!user) {
+      return NextResponse.json(
+        { error: "Usuário não encontrado" },
+        { status: 404 }
+      );
+    }
+
     const { searchParams } = new URL(req.url);
     const limit = Number(searchParams.get("limit") || 5);
+
+    const includeConfig: any = {
+      empregador: {
+        select: {
+          id: true,
+          name: true,
+          image: true,
+          city: true,
+          state: true,
+        },
+      },
+      category: {
+        select: { id: true, name: true },
+      },
+    };
+
+    if (user.role === "PRESTADOR") {
+      includeConfig.candidaturas = {
+        where: {
+          prestadorId: user.id,
+        },
+        select: { id: true },
+      };
+    }
 
     const paidAds = await prisma.vaga.findMany({
       where: {
@@ -69,27 +105,32 @@ export async function GET(req: NextRequest) {
           },
         ],
       },
-      include: {
-        empregador: {
-          select: {
-            id: true,
-            name: true,
-            image: true,
-            city: true,
-            state: true,
-          },
-        },
-        category: {
-          select: { id: true, name: true },
-        },
-      },
+      include: includeConfig,
       orderBy: {
         updatedAt: "desc",
       },
       take: limit,
     });
 
-    return NextResponse.json({ paidAds });
+    const formattedAds = paidAds.map((ad: any) => ({
+      id: ad.id,
+      titulo: ad.titulo,
+      descricao: ad.descricao,
+      salarioTipo: ad.salarioTipo,
+      salarioValor: ad.salarioValor ? Number(ad.salarioValor) : null,
+      category: ad.category,
+      empregador: ad.empregador,
+      isPaidAd: ad.isPaidAd,
+      paidAdExpiresAt: ad.paidAdExpiresAt
+        ? ad.paidAdExpiresAt.toISOString()
+        : null,
+      alreadyApplied:
+        user.role === "PRESTADOR" && Array.isArray(ad.candidaturas)
+          ? ad.candidaturas.length > 0
+          : false,
+    }));
+
+    return NextResponse.json({ paidAds: formattedAds });
   } catch (error) {
     console.error("Erro ao buscar anúncios pagos:", error);
     return NextResponse.json(
