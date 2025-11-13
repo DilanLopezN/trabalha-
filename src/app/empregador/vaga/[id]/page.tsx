@@ -87,11 +87,22 @@ export default function VagaCandidatosPage() {
     if (!candidato.prestador.workerProfile) return;
 
     const profile = candidato.prestador.workerProfile;
+    // map category only if it contains required fields (id and slug), otherwise leave undefined
+    const mappedCategory = (() => {
+      const cat = profile?.category;
+      if (!cat) return undefined;
+      // runtime check for required fields
+      if ("id" in cat && "slug" in cat) {
+        return cat as any;
+      }
+      return undefined;
+    })();
+
     const mappedProfile: WorkerProfile = {
       id: profile?.id || "",
       userId: profile?.userId || candidato.prestador.id,
       categoryId: profile?.categoryId || "",
-      category: profile?.category || undefined,
+      category: mappedCategory,
       averagePrice: Number(profile?.averagePrice || 0),
       availability: profile?.availability || {},
       description: profile?.description || "",
@@ -107,7 +118,7 @@ export default function VagaCandidatosPage() {
       city: candidato.prestador.city || null,
       state: candidato.prestador.state || null,
       profile: mappedProfile,
-      highlightPlan: null,
+      highlightPlan: undefined,
       relevanceScore: 0,
     };
 

@@ -97,9 +97,7 @@ export default function EmpregadorPage() {
         body: JSON.stringify({ vagaId, durationDays: 30 }),
       });
 
-      const data = await response.json();
-
-      if (!response.ok) {
+      if (!data.ok) {
         throw new Error(data.error || "Não foi possível destacar a vaga");
       }
 
@@ -258,98 +256,110 @@ export default function EmpregadorPage() {
                     new Date(vaga.paidAdExpiresAt) > new Date());
 
                 return (
-                  <Card key={vaga.id} className="hover:shadow-lg transition-all">
+                  <Card
+                    key={vaga.id}
+                    className="hover:shadow-lg transition-all"
+                  >
                     <CardBody className="space-y-4">
-                    <div className="flex items-start justify-between">
-                      <h3 className="text-lg font-semibold text-gray-900">
-                        {vaga.titulo}
-                      </h3>
-                      <span
-                        className={`px-3 py-1 text-xs font-medium rounded-full ${
-                          vaga.status === "ABERTA"
-                            ? "bg-green-100 text-green-700"
-                            : vaga.status === "PAUSADA"
-                            ? "bg-yellow-100 text-yellow-700"
-                            : "bg-gray-100 text-gray-700"
-                        }`}
-                      >
-                        {vaga.status}
-                      </span>
-                    </div>
-
-                    {highlightActive && (
-                      <div className="flex items-center gap-2 text-xs font-semibold text-emerald-600">
-                        <span className="inline-flex items-center gap-1 bg-emerald-50 px-2 py-1 rounded-full">
-                          <Sparkles className="w-3 h-3" /> Destaque ativo
+                      <div className="flex items-start justify-between">
+                        <h3 className="text-lg font-semibold text-gray-900">
+                          {vaga.titulo}
+                        </h3>
+                        <span
+                          className={`px-3 py-1 text-xs font-medium rounded-full ${
+                            vaga.status === "ABERTA"
+                              ? "bg-green-100 text-green-700"
+                              : vaga.status === "PAUSADA"
+                              ? "bg-yellow-100 text-yellow-700"
+                              : "bg-gray-100 text-gray-700"
+                          }`}
+                        >
+                          {vaga.status}
                         </span>
-                        {vaga.paidAdExpiresAt && (
-                          <span className="text-emerald-500">
-                            até {new Date(vaga.paidAdExpiresAt).toLocaleDateString("pt-BR")}
+                      </div>
+
+                      {highlightActive && (
+                        <div className="flex items-center gap-2 text-xs font-semibold text-emerald-600">
+                          <span className="inline-flex items-center gap-1 bg-emerald-50 px-2 py-1 rounded-full">
+                            <Sparkles className="w-3 h-3" /> Destaque ativo
                           </span>
+                          {vaga.paidAdExpiresAt && (
+                            <span className="text-emerald-500">
+                              até{" "}
+                              {new Date(
+                                vaga.paidAdExpiresAt
+                              ).toLocaleDateString("pt-BR")}
+                            </span>
+                          )}
+                        </div>
+                      )}
+
+                      <p className="text-sm text-gray-600 line-clamp-2">
+                        {vaga.descricao}
+                      </p>
+
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 text-sm text-gray-600">
+                          <DollarSign className="w-4 h-4" />
+                          <span>
+                            {vaga.salarioTipo === "FIXO"
+                              ? `R$ ${Number(vaga.salarioValor || 0).toFixed(
+                                  2
+                                )}`
+                              : "A Combinar"}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-2 text-sm text-gray-600">
+                          <Briefcase className="w-4 h-4" />
+                          <span>{vaga.category.name}</span>
+                        </div>
+
+                        <div className="flex items-center gap-2 text-sm text-gray-600">
+                          <Calendar className="w-4 h-4" />
+                          <span>
+                            {new Date(vaga.createdAt).toLocaleDateString(
+                              "pt-BR"
+                            )}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="pt-4 border-t border-gray-200 flex flex-col gap-2">
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            fullWidth
+                            className="gap-2"
+                            onClick={() =>
+                              router.push(`/empregador/vaga/${vaga.id}`)
+                            }
+                          >
+                            <Eye className="w-4 h-4" />
+                            Ver Candidatos ({vaga._count.candidaturas})
+                          </Button>
+                          <Button
+                            size="sm"
+                            fullWidth
+                            className="gap-2"
+                            onClick={() => handleHighlightVaga(vaga.id)}
+                            disabled={
+                              highlighting === vaga.id || highlightActive
+                            }
+                          >
+                            <Sparkles className="w-4 h-4" />
+                            {highlightActive
+                              ? "Destaque ativo"
+                              : "Destacar (R$ 10,00)"}
+                          </Button>
+                        </div>
+                        {highlighting === vaga.id && (
+                          <p className="text-xs text-primary-600 text-center">
+                            Processando destaque da vaga...
+                          </p>
                         )}
                       </div>
-                    )}
-
-                    <p className="text-sm text-gray-600 line-clamp-2">
-                      {vaga.descricao}
-                    </p>
-
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2 text-sm text-gray-600">
-                        <DollarSign className="w-4 h-4" />
-                        <span>
-                          {vaga.salarioTipo === "FIXO"
-                            ? `R$ ${Number(vaga.salarioValor || 0).toFixed(2)}`
-                            : "A Combinar"}
-                        </span>
-                      </div>
-
-                      <div className="flex items-center gap-2 text-sm text-gray-600">
-                        <Briefcase className="w-4 h-4" />
-                        <span>{vaga.category.name}</span>
-                      </div>
-
-                      <div className="flex items-center gap-2 text-sm text-gray-600">
-                        <Calendar className="w-4 h-4" />
-                        <span>
-                          {new Date(vaga.createdAt).toLocaleDateString("pt-BR")}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="pt-4 border-t border-gray-200 flex flex-col gap-2">
-                      <div className="flex gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          fullWidth
-                          className="gap-2"
-                          onClick={() =>
-                            router.push(`/empregador/vaga/${vaga.id}`)
-                          }
-                        >
-                          <Eye className="w-4 h-4" />
-                          Ver Candidatos ({vaga._count.candidaturas})
-                        </Button>
-                        <Button
-                          size="sm"
-                          fullWidth
-                          className="gap-2"
-                          onClick={() => handleHighlightVaga(vaga.id)}
-                          disabled={highlighting === vaga.id || highlightActive}
-                        >
-                          <Sparkles className="w-4 h-4" />
-                          {highlightActive
-                            ? "Destaque ativo"
-                            : "Destacar (R$ 10,00)"}
-                        </Button>
-                      </div>
-                      {highlighting === vaga.id && (
-                        <p className="text-xs text-primary-600 text-center">
-                          Processando destaque da vaga...
-                        </p>
-                      )}
-                    </div>
                     </CardBody>
                   </Card>
                 );
