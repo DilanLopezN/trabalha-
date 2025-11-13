@@ -3,6 +3,7 @@
 import { useState, useRef } from "react";
 import { FileText, Upload, X, CheckCircle, Loader2 } from "lucide-react";
 import { Button } from "../Button";
+import { useApi } from "@/hooks/useApi";
 
 interface ResumeUploadProps {
   currentResume?: string;
@@ -20,6 +21,7 @@ export function ResumeUpload({
   const [isUploading, setIsUploading] = useState(false);
   const [uploadedPath, setUploadedPath] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { api } = useApi();
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
@@ -53,17 +55,10 @@ export function ResumeUpload({
       formData.append("file", selectedFile);
       formData.append("type", "resume");
 
-      const response = await fetch("/api/upload", {
+      const data = await api("/api/upload", {
         method: "POST",
         body: formData,
       });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Erro ao fazer upload");
-      }
-
-      const data = await response.json();
       setUploadedPath(data.path);
       onResumeChange(data.url);
     } catch (error) {
@@ -83,7 +78,7 @@ export function ResumeUpload({
   const handleRemove = async () => {
     if (uploadedPath) {
       try {
-        await fetch(`/api/upload?path=${uploadedPath}&type=resume`, {
+        await api(`/api/upload?path=${uploadedPath}&type=resume`, {
           method: "DELETE",
         });
       } catch (error) {

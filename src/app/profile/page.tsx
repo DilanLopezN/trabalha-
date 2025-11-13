@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
@@ -27,6 +27,7 @@ import { Button } from "../components/Button";
 import { ProfilePhotoUpload } from "../components/profile/PhotoUpload";
 import { ResumeUpload } from "../components/profile/ResumeUpload";
 import { WeekScheduleSelector } from "../components/WeekSelector";
+import { useApi } from "@/hooks/useApi";
 
 const estados = [
   { value: "", label: "Selecione o estado" },
@@ -60,11 +61,11 @@ const estados = [
 ];
 
 // Schema de validação
-const profileSchema = z.object({
+const baseProfileSchema = z.object({
   // Básico
   name: z.string().min(3, "Nome deve ter no mínimo 3 caracteres"),
   email: z.string().email("Email inválido"),
-  whatsapp: z.string().min(1, "WhatsApp é obrigatório"),
+  whatsapp: z.string().optional(),
   cnpj: z.string().optional(),
   profilePhotoUrl: z.string().nullable().optional(),
 
@@ -103,16 +104,34 @@ const profileSchema = z.object({
     .optional(),
 });
 
-type ProfileFormData = z.infer<typeof profileSchema>;
+type ProfileFormData = z.infer<typeof baseProfileSchema>;
 
 export default function ProfilePage() {
   const router = useRouter();
   const { data: session, status } = useSession();
+  const { api } = useApi();
   const [categories, setCategories] = useState<
     { value: string; label: string }[]
   >([]);
   const [isLoadingCategories, setIsLoadingCategories] = useState(true);
   const [isLoadingCep, setIsLoadingCep] = useState(false);
+
+  const accountType = session?.user?.role;
+  const validationSchema = useMemo(
+    () =>
+      baseProfileSchema.superRefine((data, ctx) => {
+        if (accountType === "PRESTADOR") {
+          if (!data.whatsapp || !data.whatsapp.trim()) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              path: ["whatsapp"],
+              message: "WhatsApp é obrigatório para prestadores",
+            });
+          }
+        }
+      }),
+    [accountType]
+  );
 
   const {
     register,
@@ -122,15 +141,97 @@ export default function ProfilePage() {
     formState: { errors, isSubmitting },
     reset,
   } = useForm<ProfileFormData>({
-    resolver: zodResolver(profileSchema),
+    resolver: zodResolver(validationSchema),
     defaultValues: {
       availability: {},
     },
   });
-
-  const accountType = session?.user?.role;
   const availability = watch("availability") || {};
   const cep = watch("cep");
+
+  const loadCategories = useCallback(async () => {
+    setIsLoadingCategories(true);
+    try {
+      const { categories: cats } = await api("/api/categories");
+      console.log("📦 Categorias carregadas:", cats);
+      setCategories([
+        { value: "", label: "Selecione uma categoria" },
+        ...cats.map((cat: any) => ({
+          value: cat.id,
+          label: cat.name,
+        })),
+      ]);
+    } catch (error) {
+      console.error("❌ Erro ao carregar categorias:", error);
+      setCategories([{ value: "", label: "Erro ao carregar categorias" }]);
+    } finally {
+      setIsLoadingCategories(false);
+    }
+  }, [api]);
+
+  const loadProfile = useCallback(async () => {
+    try {
+      const { user } = await api("/api/profile");
+      console.log("👤 Perfil carregado:", user);
+
+      // Preparar dados para o formulário
+      const formData: Partial<ProfileFormData> = {
+        name: user.name || "",
+        email: user.email || "",
+        whatsapp: user.whatsapp || "",
+        cnpj: user.cnpj || "",
+        profilePhotoUrl: user.image || null, // Carregar foto
+        // Endereço
+        cep: user.cep || "",
+        street: user.street || "",
+        number: user.number || "",
+        complement: user.complement || "",
+        neighborhood: user.neighborhood || "",
+        city: user.city || "",
+        state: user.state || "",
+      };
+
+      // Carregar perfil específico
+      if (user.role === "PRESTADOR" && user.workerProfile) {
+        const profile = user.workerProfile;
+        formData.categoryId = profile.categoryId || "";
+        formData.description = profile.description || "";
+        formData.hourlyRate = profile.averagePrice?.toString() || "";
+        formData.resumeUrl = profile.resumeUrl || null;
+
+        // Converter disponibilidade
+        const availabilityData: Record<string, any> = {};
+        const profileAvailability = profile.availability || {};
+        Object.keys(profileAvailability).forEach((day) => {
+          availabilityData[day] = {
+            enabled: true,
+            slots: profileAvailability[day] || [],
+          };
+        });
+        formData.availability = availabilityData;
+      } else if (user.role === "EMPREGADOR" && user.employerProfile) {
+        const profile = user.employerProfile;
+        formData.categoryId = profile.categoryId || "";
+        formData.advertisedService = profile.advertisedService || "";
+        formData.budget = profile.budget?.toString() || "";
+
+        // Converter disponibilidade
+        const availabilityData: Record<string, any> = {};
+        const profileAvailability = profile.availability || {};
+        Object.keys(profileAvailability).forEach((day) => {
+          availabilityData[day] = {
+            enabled: true,
+            slots: profileAvailability[day] || [],
+          };
+        });
+        formData.availability = availabilityData;
+      }
+
+      reset(formData);
+    } catch (error) {
+      console.error("❌ Erro ao carregar perfil:", error);
+    }
+  }, [api, reset]);
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -139,100 +240,7 @@ export default function ProfilePage() {
       loadCategories();
       loadProfile();
     }
-  }, [status, router]);
-
-  const loadCategories = async () => {
-    setIsLoadingCategories(true);
-    try {
-      const response = await fetch("/api/categories");
-      if (response.ok) {
-        const { categories: cats } = await response.json();
-        console.log("📦 Categorias carregadas:", cats);
-        setCategories([
-          { value: "", label: "Selecione uma categoria" },
-          ...cats.map((cat: any) => ({
-            value: cat.id,
-            label: cat.name,
-          })),
-        ]);
-      } else {
-        console.error("❌ Erro ao carregar categorias");
-        setCategories([{ value: "", label: "Erro ao carregar categorias" }]);
-      }
-    } catch (error) {
-      console.error("❌ Erro ao carregar categorias:", error);
-      setCategories([{ value: "", label: "Erro ao carregar categorias" }]);
-    } finally {
-      setIsLoadingCategories(false);
-    }
-  };
-
-  const loadProfile = async () => {
-    try {
-      const response = await fetch("/api/profile");
-      if (response.ok) {
-        const { user } = await response.json();
-        console.log("👤 Perfil carregado:", user);
-
-        // Preparar dados para o formulário
-        const formData: Partial<ProfileFormData> = {
-          name: user.name || "",
-          email: user.email || "",
-          whatsapp: user.whatsapp || "",
-          cnpj: user.cnpj || "",
-          profilePhotoUrl: user.image || null, // Carregar foto
-          // Endereço
-          cep: user.cep || "",
-          street: user.street || "",
-          number: user.number || "",
-          complement: user.complement || "",
-          neighborhood: user.neighborhood || "",
-          city: user.city || "",
-          state: user.state || "",
-        };
-
-        // Carregar perfil específico
-        if (user.role === "PRESTADOR" && user.workerProfile) {
-          const profile = user.workerProfile;
-          formData.categoryId = profile.categoryId || "";
-          formData.description = profile.description || "";
-          formData.hourlyRate = profile.averagePrice?.toString() || "";
-          formData.resumeUrl = profile.resumeUrl || null;
-
-          // Converter disponibilidade
-          const availabilityData: Record<string, any> = {};
-          const profileAvailability = profile.availability || {};
-          Object.keys(profileAvailability).forEach((day) => {
-            availabilityData[day] = {
-              enabled: true,
-              slots: profileAvailability[day] || [],
-            };
-          });
-          formData.availability = availabilityData;
-        } else if (user.role === "EMPREGADOR" && user.employerProfile) {
-          const profile = user.employerProfile;
-          formData.categoryId = profile.categoryId || "";
-          formData.advertisedService = profile.advertisedService || "";
-          formData.budget = profile.budget?.toString() || "";
-
-          // Converter disponibilidade
-          const availabilityData: Record<string, any> = {};
-          const profileAvailability = profile.availability || {};
-          Object.keys(profileAvailability).forEach((day) => {
-            availabilityData[day] = {
-              enabled: true,
-              slots: profileAvailability[day] || [],
-            };
-          });
-          formData.availability = availabilityData;
-        }
-
-        reset(formData);
-      }
-    } catch (error) {
-      console.error("❌ Erro ao carregar perfil:", error);
-    }
-  };
+  }, [status, router, loadCategories, loadProfile]);
 
   const searchCep = async () => {
     if (!cep) return;
@@ -245,37 +253,35 @@ export default function ProfilePage() {
 
     setIsLoadingCep(true);
     try {
-      const response = await fetch(`/api/cep?cep=${cleanCep}`);
+      const data = await api(`/api/cep?cep=${cleanCep}`);
+      console.log("📍 Endereço encontrado:", data);
 
-      if (response.ok) {
-        const data = await response.json();
-        console.log("📍 Endereço encontrado:", data);
-
-        // Preencher os campos
-        setValue("street", data.street || "");
-        setValue("neighborhood", data.neighborhood || "");
-        setValue("city", data.city || "");
-        setValue("state", data.state || "");
-        if (data.complement) {
-          setValue("complement", data.complement);
-        }
-
-        // Focar no campo número
-        setTimeout(() => {
-          const numberInput = document.querySelector(
-            'input[name="number"]'
-          ) as HTMLInputElement;
-          if (numberInput) {
-            numberInput.focus();
-          }
-        }, 100);
-      } else {
-        const error = await response.json();
-        alert(error.error || "CEP não encontrado");
+      // Preencher os campos
+      setValue("street", data.street || "");
+      setValue("neighborhood", data.neighborhood || "");
+      setValue("city", data.city || "");
+      setValue("state", data.state || "");
+      if (data.complement) {
+        setValue("complement", data.complement);
       }
+
+      // Focar no campo número
+      setTimeout(() => {
+        const numberInput = document.querySelector(
+          'input[name="number"]'
+        ) as HTMLInputElement;
+        if (numberInput) {
+          numberInput.focus();
+        }
+      }, 100);
     } catch (error) {
       console.error("❌ Erro ao buscar CEP:", error);
-      alert("Erro ao buscar CEP. Tente novamente.");
+      const message =
+        error instanceof Error
+          ? error.message
+          : (error as { message?: string })?.message ||
+            "Erro ao buscar CEP. Tente novamente.";
+      alert(message);
     } finally {
       setIsLoadingCep(false);
     }
@@ -285,12 +291,12 @@ export default function ProfilePage() {
     console.log("🔍 Dados do formulário:", data);
 
     try {
-      const response = await fetch("/api/profile", {
+      await api("/api/profile", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: data.name,
-          whatsapp: data.whatsapp,
+          whatsapp: data.whatsapp?.trim(),
           cnpj: data.cnpj,
           profilePhotoUrl: data.profilePhotoUrl,
           resumeUrl: data.resumeUrl,
@@ -312,17 +318,16 @@ export default function ProfilePage() {
         }),
       });
 
-      if (response.ok) {
-        alert("Perfil salvo com sucesso!");
-        router.push("/dashboard");
-      } else {
-        const error = await response.json();
-        console.error("❌ Erro da API:", error);
-        alert(`Erro: ${error.error}`);
-      }
+      alert("Perfil salvo com sucesso!");
+      router.push("/dashboard");
     } catch (error) {
       console.error("❌ Erro ao salvar perfil:", error);
-      alert("Erro ao salvar perfil");
+      const message =
+        error instanceof Error
+          ? error.message
+          : (error as { message?: string })?.message ||
+            "Erro ao salvar perfil";
+      alert(message);
     }
   };
 

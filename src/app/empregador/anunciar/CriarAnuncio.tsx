@@ -16,6 +16,7 @@ import {
 import { Button } from "@/app/components/Button";
 import { Card, CardBody } from "@/app/components/Card";
 import { AdImageUpload } from "@/app/components/ad/UploadAdImage";
+import { useApi } from "@/hooks/useApi";
 
 interface HighlightPlan {
   id: string;
@@ -57,6 +58,7 @@ export default function CriarAnuncioPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { data: session, status } = useSession();
+  const { api } = useApi();
   const [plans, setPlans] = useState<HighlightPlan[]>([]);
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
   const [title, setTitle] = useState("");
@@ -92,11 +94,7 @@ export default function CriarAnuncioPage() {
 
     const loadPlans = async () => {
       try {
-        const response = await fetch("/api/highlight-plans");
-        if (!response.ok) {
-          throw new Error("Não foi possível carregar os planos");
-        }
-        const data = await response.json();
+        const data = await api("/api/highlight-plans");
         setPlans(data.plans || []);
       } catch (err) {
         console.error(err);
@@ -111,7 +109,7 @@ export default function CriarAnuncioPage() {
     };
 
     loadPlans();
-  }, [status, session, router]);
+  }, [status, session, router, api]);
 
   const handleCheckout = async () => {
     if (!selectedPlan) {
@@ -129,7 +127,7 @@ export default function CriarAnuncioPage() {
     setMessage(null);
 
     try {
-      const response = await fetch("/api/payments/checkout", {
+      const data: any = await api("/api/payments/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -141,13 +139,6 @@ export default function CriarAnuncioPage() {
           adImageUrl: imageUrl,
         }),
       });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || "Não foi possível iniciar o checkout");
-      }
-
-      const data = await response.json();
       if (data.checkoutUrl) {
         window.location.href = data.checkoutUrl;
       }
@@ -158,6 +149,7 @@ export default function CriarAnuncioPage() {
           ? err.message
           : "Erro ao redirecionar para o checkout"
       );
+    } finally {
       setIsProcessing(false);
     }
   };

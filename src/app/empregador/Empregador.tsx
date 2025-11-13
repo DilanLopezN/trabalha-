@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -17,6 +17,7 @@ import {
 import { Card, CardBody } from "../components/Card";
 import { Button } from "../components/Button";
 import { Header } from "../components/dashboard/Header";
+import { useApi } from "@/hooks/useApi";
 
 interface Vaga {
   id: string;
@@ -40,6 +41,7 @@ export default function EmpregadorPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { data: session, status } = useSession();
+  const { api } = useApi();
   const [vagas, setVagas] = useState<Vaga[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [statusMessage, setStatusMessage] = useState<{
@@ -47,6 +49,17 @@ export default function EmpregadorPage() {
     text: string;
   } | null>(null);
   const [highlighting, setHighlighting] = useState<string | null>(null);
+
+  const loadVagas = useCallback(async () => {
+    try {
+      const data = await api("/api/vagas");
+      setVagas(data.vagas || []);
+    } catch (error) {
+      console.error("Erro ao carregar vagas:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [api]);
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -58,7 +71,7 @@ export default function EmpregadorPage() {
         loadVagas();
       }
     }
-  }, [status, session, router]);
+  }, [status, session, router, loadVagas]);
 
   useEffect(() => {
     const checkoutStatus = searchParams.get("checkout");
@@ -75,39 +88,24 @@ export default function EmpregadorPage() {
     }
   }, [searchParams]);
 
-  const loadVagas = async () => {
-    try {
-      const response = await fetch("/api/vagas");
-      if (response.ok) {
-        const data = await response.json();
-        setVagas(data.vagas || []);
-      }
-    } catch (error) {
-      console.error("Erro ao carregar vagas:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   const handleHighlightVaga = async (vagaId: string) => {
     setHighlighting(vagaId);
     try {
-      const response = await fetch("/api/vagas/paid", {
+      const data: any = await api("/api/vagas/paid", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ vagaId, durationDays: 30 }),
       });
 
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || "Não foi possível destacar a vaga");
+      if (data.checkoutUrl) {
+        window.location.href = data.checkoutUrl;
+        return;
       }
 
       setStatusMessage({
         type: "success",
-        text: "Sua vaga foi destacada e aparecerá no painel por 30 dias.",
+        text: "Redirecionando para pagamento do destaque...",
       });
-      loadVagas();
     } catch (error) {
       console.error("Erro ao destacar vaga:", error);
       setStatusMessage({

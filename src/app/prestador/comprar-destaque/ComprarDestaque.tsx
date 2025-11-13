@@ -8,6 +8,7 @@ import { ArrowLeft, Check, Loader2, Sparkles, Star, Zap } from "lucide-react";
 
 import { Button } from "@/app/components/Button";
 import { Card, CardBody } from "@/app/components/Card";
+import { useApi } from "@/hooks/useApi";
 
 interface HighlightPlan {
   id: string;
@@ -45,6 +46,7 @@ export default function ComprarDestaquePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { data: session, status } = useSession();
+  const { api } = useApi();
   const [plans, setPlans] = useState<HighlightPlan[]>([]);
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -80,11 +82,7 @@ export default function ComprarDestaquePage() {
 
     const loadPlans = async () => {
       try {
-        const response = await fetch("/api/highlight-plans");
-        if (!response.ok) {
-          throw new Error("Não foi possível carregar os planos");
-        }
-        const data = await response.json();
+        const data = await api("/api/highlight-plans");
         setPlans(data.plans || []);
       } catch (err) {
         console.error(err);
@@ -99,7 +97,7 @@ export default function ComprarDestaquePage() {
     };
 
     loadPlans();
-  }, [status, session, router]);
+  }, [status, session, router, api]);
 
   const handleCheckout = async () => {
     if (!selectedPlan) {
@@ -112,7 +110,7 @@ export default function ComprarDestaquePage() {
     setIsProcessing(true);
 
     try {
-      const response = await fetch("/api/payments/checkout", {
+      const data: any = await api("/api/payments/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -120,13 +118,6 @@ export default function ComprarDestaquePage() {
           purchaseType: "highlight",
         }),
       });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || "Não foi possível iniciar o checkout");
-      }
-
-      const data = await response.json();
       if (data.checkoutUrl) {
         window.location.href = data.checkoutUrl;
       }
@@ -137,6 +128,7 @@ export default function ComprarDestaquePage() {
           ? err.message
           : "Erro ao redirecionar para o checkout"
       );
+    } finally {
       setIsProcessing(false);
     }
   };
