@@ -98,16 +98,21 @@ export default function EmpregadorPage() {
         body: JSON.stringify({ vagaId, durationDays: 30 }),
       });
 
+      const data = await response.json();
+
       if (!response.ok) {
-        const data = await response.json();
         throw new Error(data.error || "Não foi possível destacar a vaga");
+      }
+
+      if (data.checkoutUrl) {
+        window.location.href = data.checkoutUrl;
+        return;
       }
 
       setStatusMessage({
         type: "success",
-        text: "Sua vaga foi destacada e aparecerá no painel por 30 dias.",
+        text: "Redirecionando para pagamento do destaque...",
       });
-      loadVagas();
     } catch (error) {
       console.error("Erro ao destacar vaga:", error);
       setStatusMessage({

@@ -117,6 +117,53 @@ async function handleAdPurchase(metadata: Stripe.Metadata, planId: string) {
   });
 }
 
+async function handleJobHighlightPurchase(metadata: Stripe.Metadata) {
+  const userId = metadata.userId as string;
+  const vagaId = metadata.vagaId as string;
+  const durationRaw = metadata.durationDays as string;
+
+  if (!userId || !vagaId) {
+    console.warn("Checkout de destaque de vaga sem userId ou vagaId informado", {
+      userId,
+      vagaId,
+    });
+    return;
+  }
+
+  const durationDays = Number.parseInt(durationRaw || "30", 10);
+  const safeDuration = Number.isFinite(durationDays) && durationDays > 0 ? durationDays : 30;
+
+  const vaga = await prisma.vaga.findUnique({ where: { id: vagaId } });
+
+  if (!vaga) {
+    console.warn("Vaga informada no checkout não encontrada", { vagaId });
+    return;
+  }
+
+  if (vaga.empregadorId !== userId) {
+    console.warn("Tentativa de destacar vaga de outro usuário", {
+      vagaId,
+      ownerId: vaga.empregadorId,
+      userId,
+    });
+    return;
+  }
+
+  const now = new Date();
+  const expiresAt = addDays(now, safeDuration);
+
+  await prisma.vaga.update({
+    where: { id: vagaId },
+    data: {
+      // @ts-expect-error - campo adicionado na atualização do schema
+      isPaidAd: true,
+      // @ts-expect-error - campo adicionado na atualização do schema
+      paidAdExpiresAt: expiresAt,
+      updatedAt: now,
+    },
+  });
+}
+
 export async function POST(req: Request) {
   const signature = (await headers()).get("stripe-signature");
 
@@ -151,6 +198,12 @@ export async function POST(req: Request) {
     if (event.type === "checkout.session.completed") {
       const session = event.data.object as Stripe.Checkout.Session;
       const metadata = session.metadata || {};
+
+      if (metadata.purchaseType === "jobHighlight") {
+        await handleJobHighlightPurchase(metadata);
+        return NextResponse.json({ received: true });
+      }
+
       const planId = metadata.planId as string;
 
       if (!planId) {
