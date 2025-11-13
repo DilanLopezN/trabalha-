@@ -8,10 +8,12 @@ import {
   Clock,
   DollarSign,
   Briefcase,
+  MapPin,
 } from "lucide-react";
 import { Button } from "../Button";
 import { Card, CardBody, CardHeader } from "../Card";
 import { SearchResult, WorkerProfile, EmployerProfile } from "@/interfaces";
+import { Avatar } from "../Avatar";
 
 interface ProfileModalProps {
   result: SearchResult | null;
@@ -35,8 +37,6 @@ export function ProfileModal({ result, isOpen, onClose }: ProfileModalProps) {
   const isWorker = result.role === "PRESTADOR";
   const profile = result.profile as WorkerProfile | EmployerProfile;
 
-  console.log("ProfileModal result:", result);
-
   const whatsappLink = result.whatsapp
     ? (() => {
         const cleanedNumber = result.whatsapp
@@ -52,8 +52,6 @@ export function ProfileModal({ result, isOpen, onClose }: ProfileModalProps) {
         )}`;
       })()
     : null;
-
-  console.log("ProfileModal whatsappLink:", whatsappLink);
 
   const availability = profile.availability || {};
   const availableDays = Object.entries(availability).filter(
@@ -88,26 +86,26 @@ export function ProfileModal({ result, isOpen, onClose }: ProfileModalProps) {
           <div className="p-6 space-y-6">
             {/* Foto e Informações Básicas */}
             <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6">
-              <div className="w-32 h-32 rounded-full overflow-hidden bg-primary-100 flex-shrink-0 ring-4 ring-primary-50">
-                {result.image ? (
-                  <img
-                    src={result.image}
-                    alt={result.name}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center">
-                    <span className="text-4xl font-bold text-primary-600">
-                      {result.name.charAt(0).toUpperCase()}
-                    </span>
-                  </div>
-                )}
-              </div>
+              <Avatar
+                src={result.image}
+                alt={result.name}
+                size={128}
+                className="ring-4 ring-primary-50"
+                fallbackClassName="text-4xl"
+              />
 
               <div className="flex-1 text-center sm:text-left">
                 <h3 className="text-2xl font-bold text-gray-900 mb-2">
                   {result.name}
                 </h3>
+                {(result.city || result.state) && (
+                  <p className="flex items-center gap-2 text-gray-500 justify-center sm:justify-start mb-3">
+                    <MapPin className="w-4 h-4" />
+                    <span>
+                      {[result.city, result.state].filter(Boolean).join(" - ")}
+                    </span>
+                  </p>
+                )}
                 {isWorker ? (
                   <>
                     <p className="text-lg text-primary-600 font-medium mb-1">
@@ -131,6 +129,7 @@ export function ProfileModal({ result, isOpen, onClose }: ProfileModalProps) {
                   onClick={() =>
                     whatsappLink && window.open(whatsappLink, "_blank")
                   }
+                  disabled={!whatsappLink}
                   className="gap-2 w-full sm:w-auto"
                 >
                   <MessageCircle className="w-5 h-5" />
@@ -243,20 +242,21 @@ export function ProfileModal({ result, isOpen, onClose }: ProfileModalProps) {
           </div>
 
           {/* Footer */}
-          <div className="sticky bottom-0 bg-gray-50 border-t border-gray-200 px-6 py-4">
-            <div className="flex justify-between gap-3">
-              <Button variant="outline" onClick={onClose}>
-                Fechar
-              </Button>
-              <Button
-                onClick={() =>
-                  whatsappLink && window.open(whatsappLink, "_blank")
-                }
-                className="gap-2 bg-green-600 hover:bg-green-700 text-white w-full sm:w-auto"
-              >
-                <MessageCircle className="w-4 h-4" />
-                Entrar em Contato
-              </Button>
+            <div className="sticky bottom-0 bg-gray-50 border-t border-gray-200 px-6 py-4">
+              <div className="flex justify-between gap-3">
+                <Button variant="outline" onClick={onClose}>
+                  Fechar
+                </Button>
+                <Button
+                  onClick={() =>
+                    whatsappLink && window.open(whatsappLink, "_blank")
+                  }
+                  disabled={!whatsappLink}
+                  className="gap-2 bg-green-600 hover:bg-green-700 text-white w-full sm:w-auto"
+                >
+                  <MessageCircle className="w-4 h-4" />
+                  Entrar em Contato
+                </Button>
             </div>
           </div>
         </div>

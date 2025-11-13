@@ -16,6 +16,7 @@ import { CompleteProfileAlert } from "../components/AlertConfigureProfile";
 import { ProfileModal } from "../components/dashboard/ProfileModal";
 import { Header } from "../components/dashboard/Header";
 import { VagaCard } from "../components/dashboard/VagaCard";
+import { PaidJobAds } from "../components/dashboard/PaidJobAds";
 
 export default function DashboardPage() {
   const { data: session } = useSession();
@@ -26,8 +27,10 @@ export default function DashboardPage() {
     showVagas: false,
   });
   const [vagas, setVagas] = useState<any[]>([]);
+  const [paidAds, setPaidAds] = useState<any[]>([]);
   const [results, setResults] = useState<SearchResult[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingPaidAds, setIsLoadingPaidAds] = useState(false);
   const [showMobileFilters, setShowMobileFilters] = useState(false);
 
   // Modal
@@ -40,11 +43,8 @@ export default function DashboardPage() {
     checkProfileStatus();
     loadCategories();
     loadResults();
+    loadPaidAds();
   }, []);
-
-  useEffect(() => {
-    loadResults();
-  }, [filters]);
 
   const loadVagas = async () => {
     try {
@@ -83,11 +83,9 @@ export default function DashboardPage() {
             profile.averagePrice > 0 &&
             Object.keys(profile.availability || {}).length > 0
           );
-        } else if (user.role === "EMPREGADOR" && user.employerProfile) {
-          const profile = user.employerProfile;
-          isComplete = !!(
-            hasAddress && Object.keys(profile.availability || {}).length > 0
-          );
+        } else if (user.role === "EMPREGADOR") {
+          const hasCnpj = Boolean(user.cnpj);
+          isComplete = hasAddress && hasCnpj;
         }
 
         setProfileComplete(isComplete);
@@ -116,6 +114,8 @@ export default function DashboardPage() {
       params.append("type", filters.type);
       if (filters.categoryId) params.append("categoryId", filters.categoryId);
       if (filters.q) params.append("q", filters.q);
+      if (filters.state) params.append("state", filters.state);
+      if (filters.city) params.append("city", filters.city);
       if (filters.minPrice)
         params.append("minPrice", filters.minPrice.toString());
       if (filters.maxPrice)
@@ -134,6 +134,21 @@ export default function DashboardPage() {
       console.error("Erro ao carregar resultados:", error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const loadPaidAds = async () => {
+    setIsLoadingPaidAds(true);
+    try {
+      const response = await fetch("/api/vagas/paid?limit=5");
+      if (response.ok) {
+        const data = await response.json();
+        setPaidAds(data.paidAds || []);
+      }
+    } catch (error) {
+      console.error("Erro ao carregar anúncios pagos:", error);
+    } finally {
+      setIsLoadingPaidAds(false);
     }
   };
 
@@ -228,7 +243,7 @@ export default function DashboardPage() {
           </aside>
 
           {/* Main Content - Resultados */}
-          <main className="lg:col-span-9">
+          <main className="lg:col-span-6">
             {filters.showVagas ? (
               <div className="grid gap-4">
                 {vagas.map((vaga: any) => (
@@ -248,6 +263,13 @@ export default function DashboardPage() {
               />
             )}
           </main>
+
+          {/* Paid Ads */}
+          <aside className="lg:col-span-3">
+            <div className="sticky top-24">
+              <PaidJobAds ads={paidAds} isLoading={isLoadingPaidAds} />
+            </div>
+          </aside>
         </div>
       </div>
 

@@ -245,6 +245,8 @@ model Vaga {
   salarioValor Decimal?    @db.Decimal(10, 2)
   categoryId   String
   status       VagaStatus  @default(ABERTA)
+  isPaidAd     Boolean     @default(false)
+  paidAdExpiresAt DateTime?
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
 
@@ -257,6 +259,7 @@ model Vaga {
   @@index([empregadorId])
   @@index([categoryId])
   @@index([status])
+  @@index([isPaidAd])
 }
 
 model VagaEtapa {
