@@ -173,9 +173,15 @@ export default function VagaCandidatosPage() {
                           <div className="flex items-center gap-2 text-sm text-gray-600">
                             <Briefcase className="w-4 h-4" />
                             <span>
-                              Valor médio: R${" "}
-                              {candidato.prestador.workerProfile.averagePrice.toFixed(
-                                2
+                              Valor médio:{" "}
+                              {new Intl.NumberFormat("pt-BR", {
+                                style: "currency",
+                                currency: "BRL",
+                              }).format(
+                                Number(
+                                  candidato.prestador?.workerProfile
+                                    ?.averagePrice
+                                ) || 0
                               )}
                               /hora
                             </span>

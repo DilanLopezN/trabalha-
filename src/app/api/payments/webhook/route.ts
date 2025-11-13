@@ -118,6 +118,7 @@ async function handleAdPurchase(metadata: Stripe.Metadata, planId: string) {
 }
 
 export async function POST(req: Request) {
+  console.log("Recebido webhook de pagamento do Stripe", req);
   const signature = (await headers()).get("stripe-signature");
 
   if (!WEBHOOK_SECRET) {
