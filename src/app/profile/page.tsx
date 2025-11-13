@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
@@ -60,11 +60,11 @@ const estados = [
 ];
 
 // Schema de validação
-const profileSchema = z.object({
+const baseProfileSchema = z.object({
   // Básico
   name: z.string().min(3, "Nome deve ter no mínimo 3 caracteres"),
   email: z.string().email("Email inválido"),
-  whatsapp: z.string().min(1, "WhatsApp é obrigatório"),
+  whatsapp: z.string().optional(),
   cnpj: z.string().optional(),
   profilePhotoUrl: z.string().nullable().optional(),
 
@@ -103,7 +103,7 @@ const profileSchema = z.object({
     .optional(),
 });
 
-type ProfileFormData = z.infer<typeof profileSchema>;
+type ProfileFormData = z.infer<typeof baseProfileSchema>;
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -114,6 +114,23 @@ export default function ProfilePage() {
   const [isLoadingCategories, setIsLoadingCategories] = useState(true);
   const [isLoadingCep, setIsLoadingCep] = useState(false);
 
+  const accountType = session?.user?.role;
+  const validationSchema = useMemo(
+    () =>
+      baseProfileSchema.superRefine((data, ctx) => {
+        if (accountType === "PRESTADOR") {
+          if (!data.whatsapp || !data.whatsapp.trim()) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              path: ["whatsapp"],
+              message: "WhatsApp é obrigatório para prestadores",
+            });
+          }
+        }
+      }),
+    [accountType]
+  );
+
   const {
     register,
     handleSubmit,
@@ -122,13 +139,11 @@ export default function ProfilePage() {
     formState: { errors, isSubmitting },
     reset,
   } = useForm<ProfileFormData>({
-    resolver: zodResolver(profileSchema),
+    resolver: zodResolver(validationSchema),
     defaultValues: {
       availability: {},
     },
   });
-
-  const accountType = session?.user?.role;
   const availability = watch("availability") || {};
   const cep = watch("cep");
 
@@ -290,7 +305,7 @@ export default function ProfilePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: data.name,
-          whatsapp: data.whatsapp,
+          whatsapp: data.whatsapp?.trim(),
           cnpj: data.cnpj,
           profilePhotoUrl: data.profilePhotoUrl,
           resumeUrl: data.resumeUrl,

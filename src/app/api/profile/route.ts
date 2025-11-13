@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getServerSession } from "next-auth";
+import { Prisma } from "@prisma/client";
+
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { prisma } from "@/lib/prisma";
 
@@ -181,26 +183,45 @@ export async function PUT(req: NextRequest) {
       }
     } else if (user.role === "EMPREGADOR") {
       if (user.employerProfile) {
+        const employerData: {
+          advertisedService?: string;
+          budget?: number;
+          categoryId?: string;
+          availability: typeof availability;
+        } = {
+          advertisedService:
+            validatedData.advertisedService ??
+            user.employerProfile.advertisedService,
+          budget: validatedData.budget ?? Number(user.employerProfile.budget),
+          availability,
+        };
+
+        if (validatedData.categoryId) {
+          employerData.categoryId = validatedData.categoryId;
+        }
+
         await prisma.employerProfile.update({
           where: { userId: user.id },
-          data: {
-            advertisedService:
-              validatedData.advertisedService ||
-              user.employerProfile.advertisedService,
-            budget: validatedData.budget || user.employerProfile.budget,
-            categoryId:
-              validatedData.categoryId || user.employerProfile.categoryId || "",
-            availability: availability,
-          },
+          data: employerData,
         });
       } else {
+        if (!validatedData.categoryId) {
+          return NextResponse.json(
+            {
+              error:
+                "Selecione uma categoria antes de criar o perfil de empregador",
+            },
+            { status: 400 }
+          );
+        }
+
         await prisma.employerProfile.create({
           data: {
             userId: user.id,
             advertisedService: validatedData.advertisedService || "",
-            budget: validatedData.budget || 0,
-            categoryId: validatedData.categoryId || "",
-            availability: availability,
+            budget: validatedData.budget ?? 0,
+            categoryId: validatedData.categoryId,
+            availability,
           },
         });
       }
@@ -215,6 +236,18 @@ export async function PUT(req: NextRequest) {
         { error: "Dados inválidos", details: error.errors },
         { status: 400 }
       );
+    }
+
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      if (error.code === "P2003") {
+        return NextResponse.json(
+          {
+            error:
+              "Não foi possível salvar porque os dados relacionados são inválidos. Verifique a categoria selecionada.",
+          },
+          { status: 400 }
+        );
+      }
     }
 
     return NextResponse.json(
