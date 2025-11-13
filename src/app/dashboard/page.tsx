@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { SlidersHorizontal } from "lucide-react";
@@ -17,9 +17,11 @@ import { ProfileModal } from "../components/dashboard/ProfileModal";
 import { Header } from "../components/dashboard/Header";
 import { VagaCard } from "../components/dashboard/VagaCard";
 import { PaidJobAds } from "../components/dashboard/PaidJobAds";
+import { useApi } from "@/hooks/useApi";
 
 export default function DashboardPage() {
   const { data: session } = useSession();
+  const { api } = useApi();
   const [profileComplete, setProfileComplete] = useState(true);
   const [categories, setCategories] = useState<Category[]>([]);
   const [filters, setFilters] = useState<SearchFilters>({
@@ -39,75 +41,59 @@ export default function DashboardPage() {
   );
   const [showProfileModal, setShowProfileModal] = useState(false);
 
-  useEffect(() => {
-    checkProfileStatus();
-    loadCategories();
-    loadResults();
-    loadPaidAds();
-  }, []);
-
-  const loadVagas = async () => {
+  const loadVagas = useCallback(async () => {
     try {
-      const response = await fetch("/api/vagas");
-      if (response.ok) {
-        const data = await response.json();
-        setVagas(data.vagas || []);
-      }
+      const data = await api("/api/vagas");
+      setVagas(data.vagas || []);
     } catch (error) {
       console.error("Erro ao carregar vagas:", error);
     }
-  };
+  }, [api]);
 
-  const checkProfileStatus = async () => {
+  const checkProfileStatus = useCallback(async () => {
     try {
-      const response = await fetch("/api/profile");
-      if (response.ok) {
-        const { user } = await response.json();
+      const { user } = await api("/api/profile");
 
-        const hasAddress = !!(
-          user.cep &&
-          user.street &&
-          user.number &&
-          user.neighborhood &&
-          user.city &&
-          user.state
+      const hasAddress = !!(
+        user.cep &&
+        user.street &&
+        user.number &&
+        user.neighborhood &&
+        user.city &&
+        user.state
+      );
+
+      let isComplete = false;
+
+      if (user.role === "PRESTADOR" && user.workerProfile) {
+        const profile = user.workerProfile;
+        isComplete = !!(
+          hasAddress &&
+          profile.categoryId &&
+          profile.averagePrice > 0 &&
+          Object.keys(profile.availability || {}).length > 0
         );
-
-        let isComplete = false;
-
-        if (user.role === "PRESTADOR" && user.workerProfile) {
-          const profile = user.workerProfile;
-          isComplete = !!(
-            hasAddress &&
-            profile.categoryId &&
-            profile.averagePrice > 0 &&
-            Object.keys(profile.availability || {}).length > 0
-          );
-        } else if (user.role === "EMPREGADOR") {
-          const hasCnpj = Boolean(user.cnpj);
-          isComplete = hasAddress && hasCnpj;
-        }
-
-        setProfileComplete(isComplete);
+      } else if (user.role === "EMPREGADOR") {
+        const hasCnpj = Boolean(user.cnpj);
+        isComplete = hasAddress && hasCnpj;
       }
+
+      setProfileComplete(isComplete);
     } catch (error) {
       console.error("Erro ao verificar perfil:", error);
     }
-  };
+  }, [api]);
 
-  const loadCategories = async () => {
+  const loadCategories = useCallback(async () => {
     try {
-      const response = await fetch("/api/categories");
-      if (response.ok) {
-        const { categories: cats } = await response.json();
-        setCategories(cats);
-      }
+      const { categories: cats } = await api("/api/categories");
+      setCategories(cats);
     } catch (error) {
       console.error("Erro ao carregar categorias:", error);
     }
-  };
+  }, [api]);
 
-  const loadResults = async () => {
+  const loadResults = useCallback(async () => {
     setIsLoading(true);
     try {
       const params = new URLSearchParams();
@@ -125,32 +111,33 @@ export default function DashboardPage() {
       if (filters.maxBudget)
         params.append("maxBudget", filters.maxBudget.toString());
 
-      const response = await fetch(`/api/search?${params.toString()}`);
-      if (response.ok) {
-        const { results: data } = await response.json();
-        setResults(data);
-      }
+      const { results: data } = await api(`/api/search?${params.toString()}`);
+      setResults(data);
     } catch (error) {
       console.error("Erro ao carregar resultados:", error);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [api, filters]);
 
-  const loadPaidAds = async () => {
+  const loadPaidAds = useCallback(async () => {
     setIsLoadingPaidAds(true);
     try {
-      const response = await fetch("/api/vagas/paid?limit=5");
-      if (response.ok) {
-        const data = await response.json();
-        setPaidAds(data.paidAds || []);
-      }
+      const data = await api("/api/vagas/paid?limit=5");
+      setPaidAds(data.paidAds || []);
     } catch (error) {
       console.error("Erro ao carregar anúncios pagos:", error);
     } finally {
       setIsLoadingPaidAds(false);
     }
-  };
+  }, [api]);
+
+  useEffect(() => {
+    checkProfileStatus();
+    loadCategories();
+    loadResults();
+    loadPaidAds();
+  }, [checkProfileStatus, loadCategories, loadResults, loadPaidAds]);
 
   const handleFiltersChange = (newFilters: SearchFilters) => {
     setFilters(newFilters);
@@ -173,17 +160,17 @@ export default function DashboardPage() {
     } else {
       loadResults();
     }
-  }, [filters]);
+  }, [filters, loadResults, loadVagas]);
 
   const handleFavoritar = async (vagaId: string) => {
     try {
       const favorito = vagas.find((v: any) => v.id === vagaId);
       if (favorito?.favoritos?.length > 0) {
-        await fetch(`/api/vagas/favoritar?vagaId=${vagaId}`, {
+        await api(`/api/vagas/favoritar?vagaId=${vagaId}`, {
           method: "DELETE",
         });
       } else {
-        await fetch("/api/vagas/favoritar", {
+        await api("/api/vagas/favoritar", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ vagaId }),
@@ -198,21 +185,22 @@ export default function DashboardPage() {
   const handleCandidatar = async (vagaId: string) => {
     const mensagem = prompt("Mensagem opcional para o empregador:");
     try {
-      const response = await fetch("/api/vagas/candidatar", {
+      await api("/api/vagas/candidatar", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ vagaId, mensagem }),
       });
 
-      if (response.ok) {
-        alert("Candidatura enviada com sucesso!");
-        loadVagas();
-      } else {
-        const error = await response.json();
-        alert(error.error || "Erro ao candidatar-se");
-      }
+      alert("Candidatura enviada com sucesso!");
+      loadVagas();
     } catch (error) {
       console.error("Erro ao candidatar:", error);
+      const message =
+        error instanceof Error
+          ? error.message
+          : (error as { message?: string })?.message ||
+            "Erro ao candidatar-se";
+      alert(message);
     }
   };
 

@@ -121,8 +121,31 @@ function enforceCsrfProtection(request: NextRequest) {
 
   const csrfCookie = request.cookies.get(CSRF_COOKIE_NAME)?.value;
   const csrfHeader = request.headers.get(CSRF_HEADER_NAME);
+  const expectedOrigin = request.nextUrl.origin;
+  const requestOrigin = request.headers.get("origin");
+  const referer = request.headers.get("referer");
+  const isSameOriginRequest =
+    (requestOrigin && requestOrigin === expectedOrigin) ||
+    (referer && referer.startsWith(expectedOrigin));
 
-  if (!csrfCookie || !csrfHeader || csrfCookie !== csrfHeader) {
+  if (!csrfCookie) {
+    const response = NextResponse.json(
+      { error: "Invalid CSRF token" },
+      { status: 403 }
+    );
+    applySecurityHeaders(response);
+    return response;
+  }
+
+  if (csrfHeader && csrfCookie === csrfHeader) {
+    return null;
+  }
+
+  if (isSameOriginRequest) {
+    return null;
+  }
+
+  if (!csrfHeader || csrfCookie !== csrfHeader) {
     const response = NextResponse.json(
       { error: "Invalid CSRF token" },
       { status: 403 }

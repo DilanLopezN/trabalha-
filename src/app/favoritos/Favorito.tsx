@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import {
@@ -14,6 +14,7 @@ import {
 import { Card, CardBody } from "../components/Card";
 import { Button } from "../components/Button";
 import { Header } from "../components/dashboard/Header";
+import { useApi } from "@/hooks/useApi";
 
 interface VagaFavorita {
   id: string;
@@ -42,8 +43,20 @@ interface VagaFavorita {
 export default function FavoritosPage() {
   const router = useRouter();
   const { data: session, status } = useSession();
+  const { api } = useApi();
   const [favoritos, setFavoritos] = useState<VagaFavorita[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  const loadFavoritos = useCallback(async () => {
+    try {
+      const data = await api("/api/vagas/favoritar");
+      setFavoritos(data.favoritos || []);
+    } catch (error) {
+      console.error("Erro ao carregar favoritos:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [api]);
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -55,31 +68,15 @@ export default function FavoritosPage() {
         loadFavoritos();
       }
     }
-  }, [status, session, router]);
-
-  const loadFavoritos = async () => {
-    try {
-      const response = await fetch("/api/vagas/favoritar");
-      if (response.ok) {
-        const data = await response.json();
-        setFavoritos(data.favoritos || []);
-      }
-    } catch (error) {
-      console.error("Erro ao carregar favoritos:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  }, [status, session, router, loadFavoritos]);
 
   const handleRemoveFavorito = async (vagaId: string) => {
     try {
-      const response = await fetch(`/api/vagas/favoritar?vagaId=${vagaId}`, {
+      await api(`/api/vagas/favoritar?vagaId=${vagaId}`, {
         method: "DELETE",
       });
 
-      if (response.ok) {
-        setFavoritos(favoritos.filter((f) => f.vaga.id !== vagaId));
-      }
+      setFavoritos((prev) => prev.filter((f) => f.vaga.id !== vagaId));
     } catch (error) {
       console.error("Erro ao remover favorito:", error);
     }
