@@ -97,6 +97,12 @@ export default function EmpregadorPage() {
         body: JSON.stringify({ vagaId, durationDays: 30 }),
       });
 
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Não foi possível destacar a vaga");
+      }
+
       if (data.checkoutUrl) {
         window.location.href = data.checkoutUrl;
         return;
