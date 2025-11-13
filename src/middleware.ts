@@ -8,7 +8,7 @@ const CSRF_SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 const RATE_LIMIT_WINDOW_MS = 60_000;
 const RATE_LIMIT_MAX_REQUESTS = 120;
 
-const PUBLIC_PATHS = ["/auth", "/api/auth"];
+const PUBLIC_PATHS = ["/auth", "/api/auth", "/api/payments/webhook"];
 
 // Arquivos públicos reais
 const PUBLIC_FILE =
@@ -175,8 +175,13 @@ function ensureCsrfCookie(request: NextRequest, response: NextResponse) {
 /* -------------------- MIDDLEWARE MAIN -------------------- */
 const middleware = withAuth(
   function middleware(request) {
+    const pathname = request.nextUrl.pathname;
     const rateLimitResponse = enforceRateLimit(request);
     if (rateLimitResponse) return rateLimitResponse;
+
+    if (pathname === "/api/payments/webhook") {
+      return NextResponse.next();
+    }
 
     const csrfResponse = enforceCsrfProtection(request);
     if (csrfResponse) return csrfResponse;
