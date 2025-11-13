@@ -1,3 +1,5 @@
+import { BrazilState } from "./constants/brazil-states";
+
 export type UserRole = "PRESTADOR" | "EMPREGADOR";
 
 export type HighlightPlanCode = "BRONZE" | "PRATA" | "OURO" | "PLATINA";
@@ -91,7 +93,7 @@ export interface SearchFilters {
   type: "workers" | "employers";
   categoryId?: string;
   availableAt?: string;
-  state?: string;
+  state?: BrazilState;
   city?: string;
   minPrice?: number;
   maxPrice?: number;
@@ -99,6 +101,8 @@ export interface SearchFilters {
   showVagas?: boolean;
   maxBudget?: number;
   q?: string;
+  page?: number;
+  pageSize?: number;
 }
 
 export interface SearchResult {

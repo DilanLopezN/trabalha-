@@ -157,6 +157,53 @@ async function handleJobHighlightPurchase(metadata: Stripe.Metadata) {
   });
 }
 
+async function processCheckoutSession(session: Stripe.Checkout.Session) {
+  if (session.payment_status !== "paid") {
+    console.log("Sessão de checkout ainda não paga", {
+      sessionId: session.id,
+      paymentStatus: session.payment_status,
+    });
+    return;
+  }
+
+  const metadata = session.metadata || {};
+
+  if (metadata.purchaseType === "jobHighlight") {
+    await handleJobHighlightPurchase(metadata);
+    return;
+  }
+
+  const planId = metadata.planId as string;
+
+  if (!planId) {
+    console.warn("Checkout concluído sem planId na metadata", {
+      sessionId: session.id,
+    });
+    return;
+  }
+
+  const plan = await prisma.highlightPlan.findUnique({
+    where: { id: planId },
+  });
+
+  if (!plan) {
+    console.warn("Plano informado na metadata não encontrado", {
+      sessionId: session.id,
+      planId,
+    });
+    return;
+  }
+
+  if (metadata.purchaseType === "ad") {
+    await handleAdPurchase(metadata, plan.id);
+  } else {
+    await handleHighlightPurchase(metadata, {
+      id: plan.id,
+      durationDays: plan.durationDays,
+    });
+  }
+}
+
 export async function GET() {
   return NextResponse.json({ status: "ok" });
 }
@@ -193,39 +240,21 @@ export async function POST(req: Request) {
   }
 
   try {
-    if (event.type === "checkout.session.completed") {
+    if (
+      event.type === "checkout.session.completed" ||
+      event.type === "checkout.session.async_payment_succeeded"
+    ) {
       const session = event.data.object as Stripe.Checkout.Session;
-      const metadata = session.metadata || {};
+      await processCheckoutSession(session);
+      return NextResponse.json({ received: true });
+    }
 
-      if (metadata.purchaseType === "jobHighlight") {
-        await handleJobHighlightPurchase(metadata);
-        return NextResponse.json({ received: true });
-      }
-
-      const planId = metadata.planId as string;
-
-      if (!planId) {
-        console.warn("Checkout concluído sem planId na metadata");
-        return NextResponse.json({ received: true });
-      }
-
-      const plan = await prisma.highlightPlan.findUnique({
-        where: { id: planId },
+    if (event.type === "checkout.session.async_payment_failed") {
+      const session = event.data.object as Stripe.Checkout.Session;
+      console.warn("Pagamento assíncrono falhou", {
+        sessionId: session.id,
+        paymentStatus: session.payment_status,
       });
-
-      if (!plan) {
-        console.warn("Plano informado na metadata não encontrado", { planId });
-        return NextResponse.json({ received: true });
-      }
-
-      if (metadata.purchaseType === "ad") {
-        await handleAdPurchase(metadata, plan.id);
-      } else {
-        await handleHighlightPurchase(metadata, {
-          id: plan.id,
-          durationDays: plan.durationDays,
-        });
-      }
     }
 
     return NextResponse.json({ received: true });

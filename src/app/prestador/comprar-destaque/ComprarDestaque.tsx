@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
@@ -9,6 +9,9 @@ import { ArrowLeft, Check, Loader2, Sparkles, Star, Zap } from "lucide-react";
 import { Button } from "@/app/components/Button";
 import { Card, CardBody } from "@/app/components/Card";
 import { useApi } from "@/hooks/useApi";
+
+const PIX_WHATSAPP_NUMBER =
+  process.env.NEXT_PUBLIC_PIX_WHATSAPP_NUMBER || "";
 
 interface HighlightPlan {
   id: string;
@@ -53,6 +56,11 @@ export default function ComprarDestaquePage() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const selectedPlanData = useMemo(
+    () => plans.find((plan) => plan.code === selectedPlan) || null,
+    [plans, selectedPlan]
+  );
 
   useEffect(() => {
     const checkoutStatus = searchParams.get("checkout");
@@ -131,6 +139,39 @@ export default function ComprarDestaquePage() {
     } finally {
       setIsProcessing(false);
     }
+  };
+
+  const handlePixCheckout = () => {
+    setError(null);
+    setMessage(null);
+
+    if (!selectedPlanData) {
+      setError("Selecione um plano para continuar");
+      return;
+    }
+
+    if (!PIX_WHATSAPP_NUMBER) {
+      setError(
+        "Opção de pagamento via PIX indisponível. Tente novamente mais tarde."
+      );
+      return;
+    }
+
+    const sanitizedNumber = PIX_WHATSAPP_NUMBER.replace(/\D/g, "");
+
+    if (!sanitizedNumber) {
+      setError(
+        "Número de WhatsApp para pagamento via PIX não está configurado corretamente."
+      );
+      return;
+    }
+
+    const pixMessage = `ola tenho interesse no destaque ${selectedPlanData.name} com pagamento em pix`;
+    const whatsappUrl = `https://wa.me/${sanitizedNumber}?text=${encodeURIComponent(
+      pixMessage
+    )}`;
+
+    window.open(whatsappUrl, "_blank");
   };
 
   const formatPrice = (price: number) =>
@@ -257,29 +298,40 @@ export default function ComprarDestaquePage() {
         <div className="flex flex-col md:flex-row items-center justify-between gap-4 bg-white border border-gray-200 rounded-xl p-6">
           <div className="text-sm text-gray-600 space-y-1">
             <p>
-              O pagamento é processado com segurança pela Stripe. Assim que a
-              compra for confirmada, seu destaque será ativado automaticamente.
+              O pagamento é processado com segurança pela Stripe, com opções de
+              cartão ou boleto. Assim que a compra for confirmada, seu destaque
+              será ativado automaticamente.
             </p>
             <p className="text-xs text-gray-500">
               Em caso de dúvidas, entre em contato com o suporte pelo e-mail
               suporte@trabalhai.com.
             </p>
           </div>
-          <Button
-            size="lg"
-            onClick={handleCheckout}
-            disabled={isProcessing}
-            className="w-full md:w-auto"
-          >
-            {isProcessing ? (
-              <span className="flex items-center gap-2">
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Redirecionando...
-              </span>
-            ) : (
-              "Comprar destaque"
-            )}
-          </Button>
+          <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+            <Button
+              size="lg"
+              onClick={handleCheckout}
+              disabled={isProcessing}
+              className="w-full md:w-auto"
+            >
+              {isProcessing ? (
+                <span className="flex items-center gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Redirecionando...
+                </span>
+              ) : (
+                "Pagar com cartão ou boleto"
+              )}
+            </Button>
+            <Button
+              size="lg"
+              variant="outline"
+              onClick={handlePixCheckout}
+              className="w-full md:w-auto"
+            >
+              Falar no WhatsApp para pagar com PIX
+            </Button>
+          </div>
         </div>
 
         <div className="text-center text-sm text-gray-500">

@@ -30,6 +30,10 @@ interface ResultsProps {
   results: SearchResult[];
   isLoading: boolean;
   onOpenProfile: (result: SearchResult) => void;
+  total: number;
+  page: number;
+  pageSize: number;
+  onPageChange: (page: number) => void;
 }
 
 function HighlightBadge({ plan }: { plan?: string }) {
@@ -208,7 +212,49 @@ function EmployerCard({
   );
 }
 
-export function Results({ results, isLoading, onOpenProfile }: ResultsProps) {
+export function Results({
+  results,
+  isLoading,
+  onOpenProfile,
+  total,
+  page,
+  pageSize,
+  onPageChange,
+}: ResultsProps) {
+  const highlightPriority: Record<string, number> = {
+    PLATINA: 4,
+    OURO: 3,
+    PRATA: 2,
+    BRONZE: 1,
+  };
+
+  const getHighlightScore = (plan?: string | null) => {
+    if (!plan) return 0;
+    return highlightPriority[plan as keyof typeof highlightPriority] || 0;
+  };
+
+  const sortedResults = [...results].sort((a, b) => {
+    const aScore = getHighlightScore(a.highlightPlan);
+    const bScore = getHighlightScore(b.highlightPlan);
+
+    if (bScore !== aScore) {
+      return bScore - aScore;
+    }
+
+    return (a.name || "").localeCompare(b.name || "", "pt-BR");
+  });
+
+  const totalResults = total ?? sortedResults.length;
+  const safePage = page > 0 ? page : 1;
+  const safePageSize = pageSize > 0 ? pageSize : 15;
+  const totalPages = totalResults > 0 ? Math.ceil(totalResults / safePageSize) : 1;
+  const currentPage = Math.min(safePage, totalPages);
+  const startItem = totalResults === 0 ? 0 : (currentPage - 1) * safePageSize + 1;
+  const endItem =
+    totalResults === 0
+      ? 0
+      : Math.min(startItem + sortedResults.length - 1, totalResults);
+
   if (isLoading) {
     return (
       <div className="space-y-4">
@@ -219,19 +265,31 @@ export function Results({ results, isLoading, onOpenProfile }: ResultsProps) {
     );
   }
 
-  if (results.length === 0) {
+  if (sortedResults.length === 0) {
     return (
       <div className="flex items-center justify-center py-12">
-        <div className="text-center max-w-md">
-          <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+        <div className="text-center max-w-md space-y-4">
+          <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto">
             <span className="text-3xl">🔍</span>
           </div>
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">
-            Nenhum resultado encontrado
-          </h3>
-          <p className="text-gray-600">
-            Tente ajustar os filtros ou realizar uma nova busca.
-          </p>
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              Nenhum resultado encontrado
+            </h3>
+            <p className="text-gray-600">
+              Tente ajustar os filtros ou realizar uma nova busca.
+            </p>
+          </div>
+          {totalResults > 0 && (
+            <div className="flex justify-center">
+              <Button
+                variant="outline"
+                onClick={() => onPageChange(Math.max(currentPage - 1, 1))}
+              >
+                Voltar para a página anterior
+              </Button>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -240,14 +298,40 @@ export function Results({ results, isLoading, onOpenProfile }: ResultsProps) {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between mb-4">
-        <p className="text-sm text-gray-600">
-          {results.length} {results.length === 1 ? "resultado" : "resultados"}{" "}
-          encontrado{results.length === 1 ? "" : "s"}
-        </p>
+        <div>
+          <p className="text-sm text-gray-600">
+            {totalResults === 0
+              ? "Nenhum resultado encontrado"
+              : `Mostrando ${startItem} - ${endItem} de ${totalResults} resultados`}
+          </p>
+        </div>
+        <div className="flex items-center gap-2 text-sm text-gray-600">
+          <span>
+            Página {currentPage} de {Math.max(totalPages, 1)}
+          </span>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onPageChange(currentPage - 1)}
+              disabled={currentPage <= 1}
+            >
+              Anterior
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onPageChange(currentPage + 1)}
+              disabled={currentPage >= totalPages}
+            >
+              Próxima
+            </Button>
+          </div>
+        </div>
       </div>
 
       <div className="grid gap-4">
-        {results.map((result) =>
+        {sortedResults.map((result) =>
           result.role === "PRESTADOR" ? (
             <WorkerCard
               key={result.id}

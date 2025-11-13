@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { SearchFilters, Category } from "@/interfaces";
 import { Input } from "../Input";
 import { Button } from "../Button";
+import { Select } from "../Select";
+import { BRAZIL_STATE_OPTIONS } from "@/constants/brazil-states";
 
 interface FiltersProps {
   filters: SearchFilters;
@@ -26,14 +28,26 @@ export function Filters({
   onFiltersChange,
   categories,
 }: FiltersProps) {
-  const [localFilters, setLocalFilters] = useState<SearchFilters>(filters);
+  const [localFilters, setLocalFilters] = useState<SearchFilters>({
+    page: 1,
+    pageSize: 15,
+    ...filters,
+  });
 
   useEffect(() => {
-    setLocalFilters(filters);
+    setLocalFilters({
+      page: filters.page ?? 1,
+      pageSize: filters.pageSize ?? 15,
+      ...filters,
+    });
   }, [filters]);
 
   const handleChange = (key: keyof SearchFilters, value: any) => {
-    const newFilters = { ...localFilters, [key]: value };
+    const newFilters = {
+      ...localFilters,
+      [key]: value,
+      ...(key !== "page" ? { page: 1 } : {}),
+    };
     setLocalFilters(newFilters);
   };
 
@@ -44,6 +58,8 @@ export function Filters({
   const handleClear = () => {
     const clearedFilters: SearchFilters = {
       type: filters.type,
+      page: 1,
+      pageSize: 15,
     };
     setLocalFilters(clearedFilters);
     onFiltersChange(clearedFilters);
@@ -107,15 +123,17 @@ export function Filters({
 
       {/* Localização */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <Input
+        <Select
           label="Estado"
-          placeholder="Ex: SP"
           value={localFilters.state || ""}
           onChange={(e) =>
-            handleChange("state", e.target.value.toUpperCase().slice(0, 2))
+            handleChange(
+              "state",
+              e.target.value ? (e.target.value as typeof localFilters.state) : undefined
+            )
           }
           fullWidth
-          maxLength={2}
+          options={BRAZIL_STATE_OPTIONS}
         />
         <Input
           label="Cidade"
@@ -218,6 +236,19 @@ export function Filters({
       )}
 
       {/* Botões de Ação */}
+      <Select
+        label="Resultados por página"
+        value={String(localFilters.pageSize ?? 15)}
+        onChange={(e) =>
+          handleChange("pageSize", Number.parseInt(e.target.value, 10) || 15)
+        }
+        options={[
+          { value: "15", label: "15 resultados" },
+          { value: "25", label: "25 resultados" },
+        ]}
+        fullWidth
+      />
+
       <div className="space-y-2 pt-4 border-t border-gray-200">
         <Button fullWidth onClick={handleApply}>
           Aplicar Filtros

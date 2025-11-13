@@ -28,10 +28,13 @@ export default function DashboardPage() {
   const [filters, setFilters] = useState<SearchFilters>({
     type: "workers",
     showVagas: false,
+    page: 1,
+    pageSize: 15,
   });
   const [vagas, setVagas] = useState<any[]>([]);
   const [paidAds, setPaidAds] = useState<any[]>([]);
   const [results, setResults] = useState<SearchResult[]>([]);
+  const [totalResults, setTotalResults] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingPaidAds, setIsLoadingPaidAds] = useState(false);
   const [showMobileFilters, setShowMobileFilters] = useState(false);
@@ -111,9 +114,23 @@ export default function DashboardPage() {
         params.append("minBudget", filters.minBudget.toString());
       if (filters.maxBudget)
         params.append("maxBudget", filters.maxBudget.toString());
+      if (filters.page) params.append("page", filters.page.toString());
+      if (filters.pageSize)
+        params.append("pageSize", filters.pageSize.toString());
 
-      const { results: data } = await api(`/api/search?${params.toString()}`);
-      setResults(data);
+      const data = await api(`/api/search?${params.toString()}`);
+      setResults(data.results || []);
+      setTotalResults(data.total || 0);
+
+      if (typeof data.page === "number" && data.page !== filters.page) {
+        setFilters((prev) => ({ ...prev, page: data.page }));
+      }
+      if (
+        typeof data.pageSize === "number" &&
+        data.pageSize !== filters.pageSize
+      ) {
+        setFilters((prev) => ({ ...prev, pageSize: data.pageSize }));
+      }
     } catch (error) {
       console.error("Erro ao carregar resultados:", error);
     } finally {
@@ -141,8 +158,19 @@ export default function DashboardPage() {
   }, [checkProfileStatus, loadCategories, loadResults, loadPaidAds]);
 
   const handleFiltersChange = (newFilters: SearchFilters) => {
-    setFilters(newFilters);
+    setFilters({
+      ...newFilters,
+      page: newFilters.page ?? 1,
+      pageSize: newFilters.pageSize ?? 15,
+    });
     setShowMobileFilters(false);
+  };
+
+  const handlePageChange = (newPage: number) => {
+    setFilters((prev) => ({
+      ...prev,
+      page: newPage < 1 ? 1 : newPage,
+    }));
   };
 
   const handleOpenProfile = (result: SearchResult) => {
@@ -299,6 +327,10 @@ export default function DashboardPage() {
                 results={results}
                 isLoading={isLoading}
                 onOpenProfile={handleOpenProfile}
+                total={totalResults}
+                page={filters.page ?? 1}
+                pageSize={filters.pageSize ?? 15}
+                onPageChange={handlePageChange}
               />
             )}
           </main>
