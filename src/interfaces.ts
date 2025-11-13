@@ -31,7 +31,6 @@ export interface User {
 }
 
 export interface WorkerProfile {
-  resumeUrl: boolean;
   id: string;
   userId: string;
   categoryId: string;
@@ -39,6 +38,7 @@ export interface WorkerProfile {
   averagePrice: number;
   availability: Availability;
   description: string;
+  resumeUrl?: string | null;
   user?: User;
   activeHighlight?: Highlight;
 }
@@ -91,6 +91,8 @@ export interface SearchFilters {
   type: "workers" | "employers";
   categoryId?: string;
   availableAt?: string;
+  state?: string;
+  city?: string;
   minPrice?: number;
   maxPrice?: number;
   minBudget?: number;
@@ -106,6 +108,8 @@ export interface SearchResult {
   role: UserRole;
   imageUrl?: string;
   whatsapp?: string;
+  city?: string | null;
+  state?: string | null;
   profile: WorkerProfile | EmployerProfile;
   highlightPlan?: HighlightPlanCode;
   relevanceScore: number;

@@ -11,31 +11,44 @@ export async function GET(req: NextRequest) {
     const maxPrice = searchParams.get("maxPrice");
     const minBudget = searchParams.get("minBudget");
     const maxBudget = searchParams.get("maxBudget");
+    const state = searchParams.get("state");
+    const city = searchParams.get("city");
 
     if (type === "workers") {
-      // Buscar prestadores
-      const workers = await prisma.user.findMany({
-        where: {
-          role: "PRESTADOR",
-          workerProfile: {
-            isNot: null,
-          },
-          ...(categoryId && {
-            workerProfile: {
-              categoryId: categoryId,
-            },
-          }),
-          ...(q && {
-            OR: [
-              { name: { contains: q, mode: "insensitive" } },
-              {
-                workerProfile: {
-                  description: { contains: q, mode: "insensitive" },
-                },
-              },
-            ],
-          }),
+      const workerProfileFilter: Record<string, any> = {};
+      if (categoryId) {
+        workerProfileFilter.categoryId = categoryId;
+      }
+
+      const workerWhere: Record<string, any> = {
+        role: "PRESTADOR",
+        workerProfile: {
+          is: workerProfileFilter,
         },
+        ...(state && {
+          state: { equals: state, mode: "insensitive" as const },
+        }),
+        ...(city && {
+          city: { equals: city, mode: "insensitive" as const },
+        }),
+      };
+
+      if (q) {
+        workerWhere.OR = [
+          { name: { contains: q, mode: "insensitive" } },
+          {
+            workerProfile: {
+              is: {
+                ...workerProfileFilter,
+                description: { contains: q, mode: "insensitive" },
+              },
+            },
+          },
+        ];
+      }
+
+      const workers = await prisma.user.findMany({
+        where: workerWhere,
         include: {
           workerProfile: {
             include: {
@@ -90,6 +103,8 @@ export async function GET(req: NextRequest) {
           availability: worker.workerProfile?.availability || {},
           resumeUrl: worker.workerProfile?.resumeUrl,
         },
+        city: worker.city,
+        state: worker.state,
         highlightPlan: worker.highlights[0]?.plan?.code || null,
         relevanceScore: worker.highlights[0]
           ? worker.highlights[0].plan.priority
@@ -101,29 +116,40 @@ export async function GET(req: NextRequest) {
 
       return NextResponse.json({ results });
     } else {
-      // Buscar empregadores
-      const employers = await prisma.user.findMany({
-        where: {
-          role: "EMPREGADOR",
-          employerProfile: {
-            isNot: null,
-          },
-          ...(categoryId && {
-            employerProfile: {
-              categoryId: categoryId,
-            },
-          }),
-          ...(q && {
-            OR: [
-              { name: { contains: q, mode: "insensitive" } },
-              {
-                employerProfile: {
-                  advertisedService: { contains: q, mode: "insensitive" },
-                },
-              },
-            ],
-          }),
+      const employerProfileFilter: Record<string, any> = {};
+      if (categoryId) {
+        employerProfileFilter.categoryId = categoryId;
+      }
+
+      const employerWhere: Record<string, any> = {
+        role: "EMPREGADOR",
+        employerProfile: {
+          is: employerProfileFilter,
         },
+        ...(state && {
+          state: { equals: state, mode: "insensitive" as const },
+        }),
+        ...(city && {
+          city: { equals: city, mode: "insensitive" as const },
+        }),
+      };
+
+      if (q) {
+        employerWhere.OR = [
+          { name: { contains: q, mode: "insensitive" } },
+          {
+            employerProfile: {
+              is: {
+                ...employerProfileFilter,
+                advertisedService: { contains: q, mode: "insensitive" },
+              },
+            },
+          },
+        ];
+      }
+
+      const employers = await prisma.user.findMany({
+        where: employerWhere,
         include: {
           employerProfile: {
             include: {
@@ -177,6 +203,8 @@ export async function GET(req: NextRequest) {
           budget: Number(employer.employerProfile?.budget || 0),
           availability: employer.employerProfile?.availability || {},
         },
+        city: employer.city,
+        state: employer.state,
         highlightPlan: employer.highlights[0]?.plan?.code || null,
         relevanceScore: employer.highlights[0]
           ? employer.highlights[0].plan.priority

@@ -119,6 +119,9 @@ export async function GET(req: NextRequest) {
               name: true,
               image: true,
               whatsapp: true,
+              role: true,
+              city: true,
+              state: true,
               workerProfile: {
                 include: {
                   category: true,

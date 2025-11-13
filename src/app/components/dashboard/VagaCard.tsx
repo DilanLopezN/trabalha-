@@ -4,10 +4,13 @@ import {
   DollarSign,
   Calendar,
   Building2,
+  MapPin,
+  Sparkles,
 } from "lucide-react";
 import { Button } from "../Button";
 import { Card, CardBody } from "../Card";
 import { useState } from "react";
+import { Avatar } from "../Avatar";
 
 interface VagaCardProps {
   vaga: {
@@ -17,11 +20,17 @@ interface VagaCardProps {
     salarioTipo: "FIXO" | "A_COMBINAR";
     salarioValor: number | null;
     category: { name: string };
-    empregador: { name: string; image: string | null };
+    empregador: {
+      name: string;
+      image: string | null;
+      city?: string | null;
+      state?: string | null;
+    };
     favoritos: any[];
     candidaturas: any[];
     etapas: Array<{ nome: string; ordem: number }>;
     createdAt: string;
+    isPaidAd?: boolean;
   };
   onFavoritar: (vagaId: string) => void;
   onCandidatar: (vagaId: string) => void;
@@ -42,13 +51,30 @@ export function VagaCard({ vaga, onFavoritar, onCandidatar }: VagaCardProps) {
     <Card className="hover:shadow-lg transition-all">
       <CardBody className="space-y-4">
         <div className="flex items-start justify-between gap-4">
-          <div className="flex-1">
-            <h3 className="text-xl font-bold text-gray-900 mb-1">
-              {vaga.titulo}
-            </h3>
-            <div className="flex items-center gap-2 text-sm text-gray-600">
-              <Building2 className="w-4 h-4" />
-              <span>{vaga?.empregador?.name}</span>
+          <div className="flex items-start gap-3 flex-1">
+            <Avatar
+              src={vaga.empregador?.image}
+              alt={vaga.empregador?.name || "Empregador"}
+              size={56}
+            />
+            <div>
+              <h3 className="text-xl font-bold text-gray-900 mb-1">
+                {vaga.titulo}
+              </h3>
+              <div className="flex items-center gap-2 text-sm text-gray-600">
+                <Building2 className="w-4 h-4" />
+                <span>{vaga?.empregador?.name}</span>
+              </div>
+              {(vaga.empregador?.city || vaga.empregador?.state) && (
+                <div className="flex items-center gap-1 text-xs text-gray-500 mt-1">
+                  <MapPin className="w-3 h-3" />
+                  <span>
+                    {[vaga.empregador?.city, vaga.empregador?.state]
+                      .filter(Boolean)
+                      .join(" - ")}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
 
@@ -61,6 +87,12 @@ export function VagaCard({ vaga, onFavoritar, onCandidatar }: VagaCardProps) {
             <Heart className={`w-6 h-6 ${isFavorited ? "fill-current" : ""}`} />
           </button>
         </div>
+
+        {vaga.isPaidAd && (
+          <div className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full">
+            <Sparkles className="w-3 h-3" /> Anúncio pago
+          </div>
+        )}
 
         <p className="text-gray-700 line-clamp-2">{vaga.descricao}</p>
 
