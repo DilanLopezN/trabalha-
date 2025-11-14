@@ -101,7 +101,11 @@ export type BuildMetadataOptions = {
   path: string;
   keywords?: string[];
   images?: { url: string; alt?: string }[];
-  type?: string;
+  type?: Metadata["openGraph"] extends infer T
+    ? T extends { type: infer X }
+      ? X
+      : never
+    : never;
 };
 
 export const buildMetadata = ({
