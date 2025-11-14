@@ -31,6 +31,6 @@ export const BRAZIL_STATES = [
 export const BRAZIL_STATE_OPTIONS = [
   { value: "", label: "Todos os estados" },
   ...BRAZIL_STATES,
-] as const;
+];
 
 export type BrazilState = (typeof BRAZIL_STATES)[number]["value"];
