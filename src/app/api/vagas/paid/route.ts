@@ -90,15 +90,13 @@ export async function GET(req: NextRequest) {
     const paidAds = await prisma.vaga.findMany({
       where: {
         status: "ABERTA",
-        // @ts-expect-error - campo adicionado na atualização do schema
+
         isPaidAd: true,
         OR: [
           {
-            // @ts-expect-error - campo adicionado na atualização do schema
             paidAdExpiresAt: null,
           },
           {
-            // @ts-expect-error - campo adicionado na atualização do schema
             paidAdExpiresAt: {
               gt: new Date(),
             },
