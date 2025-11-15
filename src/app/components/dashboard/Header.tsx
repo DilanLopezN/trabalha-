@@ -90,6 +90,13 @@ export function Header() {
               Perfil
             </Link>
 
+            <Link
+              href="/suporte"
+              className="text-gray-600 hover:text-primary-600 hover:bg-primary-50 transition-colors px-3 py-2 rounded-lg"
+            >
+              Suporte
+            </Link>
+
             {/* Botão de sair */}
             {session && (
               <Button
@@ -169,6 +176,14 @@ export function Header() {
                 className="text-gray-600 hover:text-primary-600 hover:bg-primary-50 transition-colors px-3 py-2 rounded-lg"
               >
                 Perfil
+              </Link>
+
+              <Link
+                href="/suporte"
+                onClick={() => setShowMobileMenu(false)}
+                className="text-gray-600 hover:text-primary-600 hover:bg-primary-50 transition-colors px-3 py-2 rounded-lg"
+              >
+                Suporte
               </Link>
 
               {session && (
